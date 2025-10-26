@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import uuid
 from typing import Dict, Tuple
+from types import SimpleNamespace
 
 import numpy as np
 import torch
@@ -27,7 +28,18 @@ class InferenceService:
     def _build_transforms(self):
         imagenet_mean = [0.485, 0.456, 0.406]
         imagenet_std = [0.229, 0.224, 0.225]
-        self.processor = AutoImageProcessor.from_pretrained("microsoft/swin-tiny-patch4-window7-224")
+        # Some environments set an invalid HF token and cause 401 when fetching the processor.
+        # Try anonymous first; if it fails, fall back to ImageNet stats.
+        try:
+            # Force anonymous access and opt into fast processor to avoid warnings
+            self.processor = AutoImageProcessor.from_pretrained(
+                "microsoft/swin-tiny-patch4-window7-224",
+                token=False,
+                use_fast=True,
+            )
+        except Exception as e:
+            print(f"[swin] Processor load failed, using ImageNet stats fallback: {e}")
+            self.processor = SimpleNamespace(image_mean=imagenet_mean, image_std=imagenet_std)
 
         self.transform_effnet = transforms.Compose(
             [

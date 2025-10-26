@@ -107,3 +107,14 @@ async def predict(
         "uploaded_url": to_url(upload_path),
         "gradcam_url": to_url(result["gradcam_path"]),
     }
+
+
+if __name__ == "__main__":
+    # Convenience for local development: allow `python main.py` to run the server.
+    # In production or when using auto-reload, prefer: `uvicorn main:app --reload`.
+    import uvicorn
+
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8000"))
+    reload = os.getenv("RELOAD", "1") in {"1", "true", "True"}
+    uvicorn.run("main:app", host=host, port=port, reload=reload)
