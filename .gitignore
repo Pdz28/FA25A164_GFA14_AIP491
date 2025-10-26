@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.egg-info/
+.venv/
+venv/
+env/
+.venv*/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env and secrets
+.env
+.env.*
+*.env
+.python-version
+
+# Build/artifacts
+build/
+dist/
+
+# Data/weights (managed via Hugging Face Hub)
+weights/*.pth
+weights/*.pt
+weights/*.bin
+weights/*.safetensors
+
+# App runtime outputs
+app/static/uploads/
+app/static/outputs/
+static/uploads/
+static/outputs/
+
+# Node/Next.js
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+out/
+frontend/out/
+.vercel/
+frontend/.vercel/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

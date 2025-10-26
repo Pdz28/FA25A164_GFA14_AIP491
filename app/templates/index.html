@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fusion Model Grad-CAM Demo</title>
+  <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Grad-CAM Visualizer (CNN + Swin Fusion)</h1>
+    <p>Upload an image, get prediction, and explore Grad-CAM with a slider.</p>
+  </header>
+
+  <main class="container">
+    <section class="left">
+      <h2>1) Upload</h2>
+      <form id="upload-form">
+        <input id="file-input" type="file" name="file" accept="image/*" required />
+        <select id="mode-select" title="Visualization mode">
+          <option value="fusion" selected>Fusion (Grad-CAM + ViT saliency)</option>
+          <option value="fusion_attn">Fusion Attention (post-hoc cross-attn)</option>
+          <option value="swin_patchcam">Swin Patch-CAM (tokens)</option>
+          <option value="cnn">CNN Grad-CAM only</option>
+        </select>
+        <select id="token-stage-select" title="Swin token resolution">
+          <option value="hr" selected>Token stage: Auto (prefer 14×14)</option>
+          <option value="56">Token stage: 56×56 (heavier)</option>
+          <option value="28">Token stage: 28×28</option>
+          <option value="14">Token stage: 14×14</option>
+          <option value="7">Token stage: 7×7 (last)</option>
+        </select>
+        <label style="display:inline-flex;gap:6px;align-items:center" title="Boost visibility using percentile clipping and per‑pixel alpha">
+          <input id="enhance-toggle" type="checkbox" />
+          Enhanced contrast
+        </label>
+        <button type="submit">Analyze</button>
+      </form>
+      <div class="image-box">
+        <img id="uploaded-preview" alt="Uploaded preview" />
+      </div>
+      <div id="predictions" class="predictions hidden"></div>
+    </section>
+
+    <section class="right">
+      <h2>2) Grad-CAM</h2>
+      <div class="compare-wrapper">
+        <div class="compare-box" id="compare-box">
+          <img id="compare-base" alt="Original" />
+          <div id="overlay" class="overlay">
+            <img id="compare-overlay" alt="Grad-CAM" />
+          </div>
+          <div id="handle" class="handle"></div>
+        </div>
+        <input id="slider" type="range" min="0" max="100" value="50" />
+        <div class="labels">
+          <span>Before</span>
+          <span>After</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <small>Prototype for visualization only. Model: EfficientNet-B3 + Swin-T (LoRA).</small>
+  </footer>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
