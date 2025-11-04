@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import torch.nn as nn
 from torchvision import models
 from transformers import SwinModel
@@ -135,16 +136,16 @@ class CNNViTFusion(nn.Module):
         logits = self.classifier(fused)
         return logits
 
-    def forward_with_tokens(self, x_cnn: torch.Tensor, x_swin: torch.Tensor, token_stage: str = "last"):
+    def forward_with_tokens(self, x_cnn: torch.Tensor, x_swin: torch.Tensor, token_stage: str = "7"):
         """Forward that also returns Swin tokens for visualization.
 
         Args:
-            token_stage: "last" (default, 7x7)
+            token_stage: "7" (default, 7x7)
                          "hr" (prefer 14x14 if available)
-                         "14", "28", or "7" to explicitly pick the grid size
+                         "14", "28", "7" or "1" to explicitly pick the grid size
 
         Returns:
-            logits, swin_tokens (selected by token_stage)
+            logits, swin_tokens (selected or resampled to token_stage)
         """
         feats = self.cnn_backbone(x_cnn)
         feats = self.cnn_bn(feats)
@@ -193,6 +194,25 @@ class CNNViTFusion(nn.Module):
                         selected_tokens = chosen
             except Exception:
                 selected_tokens = last_tokens
+
+        # If caller requested a specific token stage, try to return tokens matching that size.
+        # Support token_stage == "1" (global pooled token) and numeric sizes via adaptive pooling.
+        try:
+            if token_stage_l in ("1", "global", "pool"):
+                # global pooled token [B,1,D]
+                selected_tokens = last_tokens.mean(dim=1, keepdim=True)
+            elif token_stage_l in ("56", "28", "14", "7"):
+                target = int(token_stage_l)
+                B, N, D = selected_tokens.shape
+                cur_s = int(N ** 0.5) if int(N ** 0.5) ** 2 == N else None
+                if cur_s is not None and cur_s != target:
+                    # reshape to (B, D, H, W) for pooling
+                    toks = selected_tokens.view(B, cur_s, cur_s, D).permute(0, 3, 1, 2).contiguous()
+                    toks_p = F.adaptive_avg_pool2d(toks, (target, target))
+                    selected_tokens = toks_p.permute(0, 2, 3, 1).contiguous().view(B, target * target, D)
+        except Exception:
+            # safe fallback to whatever we had
+            pass
 
         swin_feats = last_tokens.mean(dim=1)  # keep classifier behavior identical
 

@@ -10,6 +10,8 @@
   <header>
     <h1>Grad-CAM Visualizer (CNN + Swin Fusion)</h1>
     <p>Upload an image, get prediction, and explore Grad-CAM with a slider.</p>
+    <div id="service-status" style="font-size:13px;margin-top:6px;color:#444">Checking service status…</div>
+    <p style="font-size:12px;margin-top:6px;color:#666">Note: token stage is fixed to the last stage (7×7). To enable EffNet visuals, place an EffNet checkpoint (e.g. <code>best_effnetb0.pth</code>) into the <code>weights/</code> folder and restart the server.</p>
   </header>
 
   <main class="container">
@@ -19,21 +21,36 @@
         <input id="file-input" type="file" name="file" accept="image/*" required />
         <select id="mode-select" title="Visualization mode">
           <option value="fusion" selected>Fusion (Grad-CAM + ViT saliency)</option>
-          <option value="fusion_attn">Fusion Attention (post-hoc cross-attn)</option>
+          <!-- Fusion attention removed -->
           <option value="swin_patchcam">Swin Patch-CAM (tokens)</option>
           <option value="cnn">CNN Grad-CAM only</option>
+          <option value="effnet">EffNet-B0 Grad-CAM</option>
         </select>
-        <select id="token-stage-select" title="Swin token resolution">
-          <option value="hr" selected>Token stage: Auto (prefer 14×14)</option>
-          <option value="56">Token stage: 56×56 (heavier)</option>
-          <option value="28">Token stage: 28×28</option>
-          <option value="14">Token stage: 14×14</option>
-          <option value="7">Token stage: 7×7 (last)</option>
-        </select>
+        <label id="token-stage-container" style="display:none;margin-left:8px;font-size:13px;" title="Choose which Swin token grid to visualize">
+          Token stage
+          <select id="token-stage-select" style="margin-left:6px">
+            <option value="1">Global (1×1)</option>
+            <option value="7" selected>7×7 (last)</option>
+            <option value="14">14×14</option>
+            <option value="all">All stages</option>
+            <option value="hr">High-res (prefer 14×14)</option>
+            <option value="28">28×28</option>
+            <option value="56">56×56</option>
+          </select>
+        </label>
+        <!-- Token stage selector removed; default behavior uses 7x7 (last) -->
         <label style="display:inline-flex;gap:6px;align-items:center" title="Boost visibility using percentile clipping and per‑pixel alpha">
           <input id="enhance-toggle" type="checkbox" />
           Enhanced contrast
         </label>
+        <label style="display:inline-flex;gap:6px;align-items:center" title="Use per-pixel alpha blending for the overlay">
+          <input id="perpixel-toggle" type="checkbox" />
+          Per-pixel alpha
+        </label>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+          <label style="font-size:12px">Alpha min <input id="alpha-min" type="number" step="0.05" min="0" max="1" value="0.0" style="width:64px;margin-left:6px"/></label>
+          <label style="font-size:12px">Alpha max <input id="alpha-max" type="number" step="0.05" min="0" max="1" value="0.6" style="width:64px;margin-left:6px"/></label>
+        </div>
         <button type="submit">Analyze</button>
       </form>
       <div class="image-box">
@@ -62,7 +79,7 @@
   </main>
 
   <footer>
-    <small>Prototype for visualization only. Model: EfficientNet-B3 + Swin-T (LoRA).</small>
+    <small>Prototype for visualization only. Model: EfficientNet-B3 + Swin-T (LoRA). Token stage selector available when visualizing Swin tokens (Patch-CAM or Fusion). To enable EffNet visuals, place an EffNet checkpoint (e.g. <code>best_effnetb0.pth</code>) into the <code>weights/</code> folder and restart the server.</small>
   </footer>
 
   <script src="/static/js/app.js"></script>

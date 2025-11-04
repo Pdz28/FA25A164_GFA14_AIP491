@@ -3,7 +3,9 @@ const fileInput = document.getElementById('file-input');
 const preview = document.getElementById('uploaded-preview');
 const predBox = document.getElementById('predictions');
 const modeSelect = document.getElementById('mode-select');
+// token stage selector (shown only for Swin token modes)
 const tokenStageSelect = document.getElementById('token-stage-select');
+const tokenStageContainer = document.getElementById('token-stage-container');
 const enhanceToggle = document.getElementById('enhance-toggle');
 
 const baseImg = document.getElementById('compare-base');
@@ -21,6 +23,31 @@ function setSlider(percent){
 
 slider.addEventListener('input', () => setSlider(slider.value));
 setSlider(50);
+
+// Fetch service health on load and update UI
+async function refreshHealth(){
+  const el = document.getElementById('service-status');
+  if (!el) return;
+  try{
+    const res = await fetch('/health');
+    if (!res.ok) {
+      el.textContent = 'Service not ready';
+      el.style.color = '#b00';
+      return;
+    }
+    const j = await res.json();
+    const parts = [];
+    parts.push(j.loaded_weights || 'no weights');
+    parts.push('device: ' + (j.device || 'unknown'));
+    parts.push('EffNet: ' + (j.effnet_loaded ? 'available' : 'unavailable'));
+    el.textContent = 'Service ready — ' + parts.join(' · ');
+    el.style.color = j.effnet_loaded ? '#0a0' : '#444';
+  }catch(err){
+    el.textContent = 'Service status unavailable';
+    el.style.color = '#b00';
+  }
+}
+window.addEventListener('load', () => refreshHealth());
 
 fileInput.addEventListener('change', () => {
   const f = fileInput.files?.[0];
@@ -44,12 +71,17 @@ form.addEventListener('submit', async (e) => {
 
   try{
   const mode = modeSelect?.value || 'fusion';
-  const stage = tokenStageSelect?.value || 'hr';
+  const stage = tokenStageSelect?.value || '7';
   const enhance = !!enhanceToggle?.checked;
-  const q = new URLSearchParams({ mode, token_stage: stage, enhance: String(enhance) });
+    const perPixel = !!document.getElementById('perpixel-toggle')?.checked;
+    const alphaMin = document.getElementById('alpha-min')?.value || '0.0';
+    const alphaMax = document.getElementById('alpha-max')?.value || '0.6';
+    const q = new URLSearchParams({ mode, token_stage: stage, enhance: String(enhance), per_pixel: String(perPixel), alpha_min: String(alphaMin), alpha_max: String(alphaMax) });
   const res = await fetch(`/predict?${q.toString()}`, { method: 'POST', body: data });
-    if (!res.ok) throw new Error('Server error');
     const out = await res.json();
+    if (!res.ok) {
+      throw new Error(out?.error || out?.message || 'Server error');
+    }
 
     // Update UI
     preview.src = out.uploaded_url;
@@ -69,3 +101,15 @@ form.addEventListener('submit', async (e) => {
     predBox.textContent = 'Error: ' + err.message;
   }
 });
+
+// Show/hide token-stage selector depending on selected mode
+function updateTokenSelectorVisibility(){
+  const mode = modeSelect?.value || 'fusion';
+  if (mode === 'swin_patchcam' || mode === 'fusion'){
+    tokenStageContainer && (tokenStageContainer.style.display = 'inline-block');
+  } else {
+    tokenStageContainer && (tokenStageContainer.style.display = 'none');
+  }
+}
+modeSelect?.addEventListener('change', updateTokenSelectorVisibility);
+window.addEventListener('load', updateTokenSelectorVisibility);

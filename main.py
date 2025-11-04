@@ -61,6 +61,25 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+@app.get("/health")
+async def health(request: Request):
+    """Lightweight health/status endpoint used by the UI to show which model pieces loaded.
+
+    Returns 200 when the service object is available, 503 if not yet ready.
+    """
+    service: InferenceService | None = getattr(request.app.state, "service", None)
+    if service is None:
+        return JSONResponse({"ready": False, "message": "service not ready"}, status_code=503)
+
+    effnet_loaded = getattr(service, "effnet", None) is not None
+    return {
+        "ready": True,
+        "device": str(service.device),
+        "loaded_weights": getattr(service, "loaded_weights_info", ""),
+        "effnet_loaded": bool(effnet_loaded),
+    }
+
+
 @app.get("/flutter_service_worker.js")
 async def flutter_sw():
     # Some browsers may request this due to a previous PWA installation.
@@ -79,8 +98,11 @@ async def predict(
     request: Request,
     file: UploadFile = File(...),
     mode: str = Query("fusion"),
-    token_stage: str | None = Query(None, description="Swin token stage: hr/28/14/7/last"),
+    token_stage: str = Query("7", description="Swin token stage: 7/14/28/56; default is 7 (last)") ,
     enhance: bool = Query(False, description="Enhanced contrast (per-pixel alpha + percentile clip)"),
+    per_pixel: bool = Query(False, description="Use per-pixel alpha blending for overlay"),
+    alpha_min: float = Query(0.0, description="Minimum per-pixel alpha when per_pixel is true"),
+    alpha_max: float = Query(0.6, description="Maximum per-pixel alpha when per_pixel is true"),
 ) -> Dict:
     service: InferenceService | None = getattr(request.app.state, "service", None)
     if service is None:
@@ -95,7 +117,23 @@ async def predict(
     img = Image.open(file.file).convert("RGB")
     img.save(upload_path)
 
-    result = service.predict_with_gradcam(img, OUTPUT_DIR, mode=mode, token_stage=token_stage, enhance=enhance)
+    try:
+        result = service.predict_with_gradcam(
+            img,
+            OUTPUT_DIR,
+            mode=mode,
+            token_stage=token_stage,
+            enhance=enhance,
+            per_pixel=per_pixel,
+            alpha_min=alpha_min,
+            alpha_max=alpha_max,
+        )
+    except RuntimeError as e:
+        # Return 400 for known client errors (e.g., EffNet not available)
+        msg = str(e)
+        if "EffNet" in msg or "EffNet visualization" in msg:
+            return JSONResponse({"error": msg}, status_code=400)
+        raise
 
     # Convert to URLs for the frontend
     def to_url(p: str) -> str:

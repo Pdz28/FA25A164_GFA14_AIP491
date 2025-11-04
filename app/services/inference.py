@@ -116,6 +116,41 @@ class InferenceService:
         target_layer = self.model.get_last_cnn_layer()
         self.gradcam = GradCAM(self.model, target_layer)
 
+        # Optional: prepare a standalone EfficientNet-B0 classifier for separate visualization
+        try:
+            from app.models.cnn_b0 import EffNetClassifier
+
+            self.effnet = EffNetClassifier(num_classes=len(self.class_names), img_size=self.img_size)
+            self.effnet.to(self.device).eval()
+            # Try to load a matching effnet checkpoint if present
+            eff_candidates = [
+                os.path.join(weights_dir, "best_effnetb0.pth"),
+            ]
+            if os.path.isdir(weights_dir):
+                for fn in os.listdir(weights_dir):
+                    if fn.lower().startswith("eff") and fn.lower().endswith(".pth"):
+                        p = os.path.join(weights_dir, fn)
+                        if p not in eff_candidates:
+                            eff_candidates.append(p)
+
+            for p in eff_candidates:
+                if os.path.exists(p):
+                    try:
+                        sd = torch.load(p, map_location=self.device)
+                        # Attempt to load either full model or state_dict
+                        try:
+                            self.effnet.load_state_dict(sd)
+                        except Exception:
+                            # maybe checkpoint stores model key
+                            if "model_state_dict" in sd:
+                                self.effnet.load_state_dict(sd["model_state_dict"])
+                        print(f"Loaded EffNet checkpoint: {os.path.basename(p)}")
+                        break
+                    except Exception as e:
+                        print(f"Failed to load effnet checkpoint {p}: {e}")
+        except Exception:
+            self.effnet = None
+
     @torch.no_grad()
     def preprocess(self, image: Image.Image) -> Tuple[torch.Tensor, torch.Tensor]:
         x_eff = self.transform_effnet(image).unsqueeze(0).to(self.device)
@@ -148,6 +183,9 @@ class InferenceService:
         mode: str = "fusion",
         token_stage: str | None = None,
         enhance: bool = False,
+        per_pixel: bool = False,
+        alpha_min: float = 0.0,
+        alpha_max: float = 0.6,
     ) -> Dict:
         os.makedirs(save_dir, exist_ok=True)
         x_eff, x_swin = self.preprocess(image)
@@ -159,80 +197,120 @@ class InferenceService:
             pred_idx = int(np.argmax(probs))
             cam = self.gradcam.generate(x_eff, x_swin, target_class=pred_idx, upsample_size=image.size[::-1])
             cam_np = cam.numpy()
-            overlay = self.gradcam.overlay_on_image(image, cam_np, alpha=0.45)
-        elif mode == "fusion_attn":
-            # Post-hoc cross-attention between Swin tokens (Q) and CNN spatial tokens (K,V)
+            # Match fusion's visual treatment: optionally apply percentile normalization when enhance=True
+            cam_np = self._percentile_normalize(cam_np, 2, 98) if enhance else self._normalize_np(cam_np)
+            overlay = self.gradcam.overlay_on_image(
+                image,
+                cam_np,
+                alpha=0.45,
+                per_pixel=per_pixel or enhance,
+                alpha_min=alpha_min,
+                alpha_max=alpha_max,
+            )
+        elif mode == "effnet":
+            # Use standalone EfficientNet-B0 model for Grad-CAM visualization
+            if getattr(self, "effnet", None) is None:
+                # Explicitly fail fast so clients know EffNet visualization isn't available
+                raise RuntimeError("EffNet visualization not loaded on server")
+
+            # Compute logits for reporting
             with torch.no_grad():
-                feats = self.model.cnn_backbone(x_eff)
-                feats = self.model.cnn_bn(feats)  # [B,C,H,W]
-                B, C, H, W = feats.shape
-                cnn_tokens = feats.permute(0, 2, 3, 1).reshape(B, H * W, C)  # [B,Nc,C]
-
-                swin_out = self.model.swin(pixel_values=x_swin)
-                swin_tokens = swin_out.last_hidden_state  # [B,Nv,Ds]
-
-                # Project to common dim using the same fusion projections and norms
-                q = self.model.fuse.norm_q(self.model.fuse.swin_proj(swin_tokens))  # [B,Nv,D]
-                kv = self.model.fuse.norm_kv(self.model.fuse.cnn_proj(cnn_tokens))  # [B,Nc,D]
-
-                # Use the same MHA module to get attention weights
-                self.model.eval()
-                attn_out, attn_w = self.model.fuse.attn(
-                    q, kv, kv, need_weights=True, average_attn_weights=False
-                )  # attn_w: [B, heads, Nv, Nc]
-
-                # Average over heads and queries (Nv) to get spatial map over Nc tokens
-                attn_map = attn_w.mean(dim=(1, 2))[0]  # [Nc]
-                attn_map = attn_map.reshape(H, W).unsqueeze(0).unsqueeze(0)  # [1,1,H,W]
-                attn_map = attn_map / (attn_map.max() + 1e-8)
-                attn_up = F.interpolate(attn_map, size=image.size[::-1], mode="bilinear", align_corners=False)[0, 0]
-                cam_np = attn_up.detach().cpu().numpy()
-
-                # For completeness, also compute logits to report prediction
-                logits = self.model(x_eff, x_swin)
+                logits = self.effnet(x_eff)
                 probs = F.softmax(logits, dim=1)[0].detach().cpu().numpy()
                 pred_idx = int(np.argmax(probs))
 
-            overlay = self.gradcam.overlay_on_image(image, cam_np, alpha=0.45)
+            # Compute Grad-CAM map via EffNet helper (this will run backward)
+            cam_np = self.effnet.compute_gradcam_map(x_eff, target_class=pred_idx)
+            # Apply same percentile normalization as fusion when requested
+            cam_np = self._percentile_normalize(cam_np, 2, 98) if enhance else self._normalize_np(cam_np)
+            # Overlay using the existing GradCAM utility
+            overlay = self.gradcam.overlay_on_image(
+                image,
+                cam_np,
+                alpha=0.45,
+                per_pixel=per_pixel,
+                alpha_min=alpha_min,
+                alpha_max=alpha_max,
+            )
+        # removed: fusion_attn post-hoc cross-attention visualization (deprecated)
         elif mode == "swin_patchcam":
             # ViT token-only saliency (Patch-CAM at last stage tokens)
-            self.model.zero_grad(set_to_none=True)
-            # Ensure Swin path builds a grad graph even if model params are frozen
-            x_swin.requires_grad_(True)
+            # We'll support either a single selected stage or 'all' to aggregate across
+            # all available Swin token stages. First compute logits once to pick pred_idx.
             with torch.enable_grad():
-                # Use selected or higher‑resolution Swin tokens if available
-                ts = (token_stage or "hr")
-                logits, swin_tokens = self.model.forward_with_tokens(x_eff, x_swin, token_stage=ts)
-            probs = F.softmax(logits, dim=1)[0].detach().cpu().numpy()
+                ts0 = (token_stage or "hr")
+                logits0, _ = self.model.forward_with_tokens(x_eff, x_swin, token_stage=ts0)
+            probs = F.softmax(logits0, dim=1)[0].detach().cpu().numpy()
             pred_idx = int(np.argmax(probs))
 
-            swin_tokens.retain_grad()
-            score = logits[:, pred_idx].sum()
-            score.backward()
+            def _saliency_for_stage(stage_key: str):
+                # returns a 2D numpy saliency upsampled to image size
+                try:
+                    self.model.zero_grad(set_to_none=True)
+                    x_swin.requires_grad_(True)
+                    with torch.enable_grad():
+                        logits, swin_tokens = self.model.forward_with_tokens(x_eff, x_swin, token_stage=stage_key)
+                    swin_tokens.retain_grad()
+                    score = logits[:, pred_idx].sum()
+                    score.backward()
+                    token_grads = swin_tokens.grad  # [B,N,D]
+                    if token_grads is None:
+                        return None
+                    ga = (token_grads[0] * swin_tokens.detach()[0]).sum(dim=-1)  # [N]
+                    ga = F.relu(ga)
+                    N = ga.shape[0]
+                    S = int(N ** 0.5)
+                    if S * S == N:
+                        sal_map = ga.reshape(S, S).unsqueeze(0).unsqueeze(0)
+                        sal_up = F.interpolate(sal_map, size=image.size[::-1], mode="bicubic", align_corners=False)[0, 0]
+                        cam_np_local = sal_up.detach().cpu().numpy()
+                    else:
+                        cam_np_local = ga.detach().cpu().numpy()
+                    cam_np_local = self._percentile_normalize(cam_np_local, 2, 98) if enhance else self._normalize_np(cam_np_local)
+                    return cam_np_local
+                except Exception:
+                    return None
 
-            token_grads = swin_tokens.grad  # [B,N,D]
-            if token_grads is not None:
-                # Grad × Activation saliency
-                ga = (token_grads[0] * swin_tokens.detach()[0]).sum(dim=-1)  # [N]
-                ga = F.relu(ga)
-                N = ga.shape[0]
-                S = int(N ** 0.5)
-                if S * S == N:
-                    sal_map = ga.reshape(S, S).unsqueeze(0).unsqueeze(0)
-                    sal_up = F.interpolate(sal_map, size=image.size[::-1], mode="bicubic", align_corners=False)[0, 0]
-                    cam_np = sal_up.detach().cpu().numpy()
-                    cam_np = self._percentile_normalize(cam_np, 2, 98) if enhance else self._normalize_np(cam_np)
-                else:
-                    cam_np = ga.detach().cpu().numpy()
-                    cam_np = self._percentile_normalize(cam_np, 2, 98) if enhance else self._normalize_np(cam_np)
+            # If user requested all stages, enumerate available hidden state sizes
+            stages_to_check = []
+            if (token_stage or "") == "all":
+                try:
+                    swin_out = self.model.swin(pixel_values=x_swin, output_hidden_states=True, return_dict=True)
+                    sizes = set()
+                    if swin_out.hidden_states is not None:
+                        for hs in swin_out.hidden_states:
+                            n = hs.shape[1]
+                            s = int(n ** 0.5)
+                            if s * s == n:
+                                sizes.add(s)
+                    # Always include global pooled token
+                    stages_to_check = ["1"] + sorted([str(s) for s in sizes])
+                except Exception:
+                    stages_to_check = ["7"]
             else:
+                stages_to_check = [str(token_stage or "7")]
+
+            maps = []
+            for st in stages_to_check:
+                m = _saliency_for_stage(st)
+                if m is not None:
+                    maps.append(m)
+
+            if not maps:
                 cam_np = np.zeros((image.size[1], image.size[0]), dtype=np.float32)
+            else:
+                # fuse by elementwise max for visibility consistency
+                cam_np = maps[0]
+                for m in maps[1:]:
+                    cam_np = np.maximum(cam_np, m)
 
             overlay = self.gradcam.overlay_on_image(
                 image,
                 cam_np,
                 alpha=0.45,
-                **({"per_pixel": True, "alpha_min": 0.0, "alpha_max": 0.6} if enhance else {})
+                per_pixel=per_pixel or enhance,
+                alpha_min=alpha_min,
+                alpha_max=alpha_max,
             )
         else:
             # Fusion mode: single forward/backward to get both CNN CAM and Swin token saliency
@@ -288,7 +366,9 @@ class InferenceService:
                 image,
                 cam_np,
                 alpha=0.45,
-                **({"per_pixel": True, "alpha_min": 0.0, "alpha_max": 0.6} if enhance else {})
+                per_pixel=per_pixel or enhance,
+                alpha_min=alpha_min,
+                alpha_max=alpha_max,
             )
 
         # Save both original and overlay images
