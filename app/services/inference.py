@@ -14,6 +14,7 @@ from transformers import AutoImageProcessor
 
 from app.models.cnnswin import CNNViTFusion
 from app.utils.gradcam import GradCAM
+from app.models.swin import SwinTinyFull
 
 
 class InferenceService:
@@ -151,6 +152,39 @@ class InferenceService:
         except Exception:
             self.effnet = None
 
+        # Optional: prepare a standalone Swin-Tiny classifier (separate from fusion model)
+        try:
+            self.swin_cls = SwinTinyFull(num_classes=len(self.class_names))
+            self.swin_cls.to(self.device).eval()
+            # Try to load an explicit Swin checkpoint if present
+            swin_candidates = [
+                os.path.join(weights_dir, "best_swin.pth"),
+            ]
+            if os.path.isdir(weights_dir):
+                for fn in os.listdir(weights_dir):
+                    if fn.lower().startswith("best_swin") and fn.lower().endswith(".pth"):
+                        p = os.path.join(weights_dir, fn)
+                        if p not in swin_candidates:
+                            swin_candidates.append(p)
+
+            for p in swin_candidates:
+                if os.path.exists(p):
+                    try:
+                        sd = torch.load(p, map_location=self.device)
+                        try:
+                            self.swin_cls.load_state_dict(sd, strict=False)
+                        except Exception:
+                            # allow nested dicts or keys under 'model_state_dict'
+                            if isinstance(sd, dict) and "model_state_dict" in sd:
+                                self.swin_cls.load_state_dict(sd["model_state_dict"], strict=False)
+                        print(f"Loaded Swin checkpoint: {os.path.basename(p)}")
+                        break
+                    except Exception as e:
+                        print(f"Failed to load swin checkpoint {p}: {e}")
+        except Exception as e:
+            print(f"[swin] standalone classifier init failed: {e}")
+            self.swin_cls = None
+
     @torch.no_grad()
     def preprocess(self, image: Image.Image) -> Tuple[torch.Tensor, torch.Tensor]:
         x_eff = self.transform_effnet(image).unsqueeze(0).to(self.device)
@@ -229,6 +263,62 @@ class InferenceService:
                 cam_np,
                 alpha=0.45,
                 per_pixel=per_pixel,
+                alpha_min=alpha_min,
+                alpha_max=alpha_max,
+            )
+        elif mode == "swin":
+            # Standalone Swin-Tiny classifier with token-based saliency overlay
+            if getattr(self, "swin_cls", None) is None:
+                raise RuntimeError("Swin classifier not loaded on server")
+
+            # Compute logits for reporting
+            with torch.enable_grad():
+                x_swin.requires_grad_(True)
+                out = self.swin_cls.swin(pixel_values=x_swin, output_hidden_states=True, return_dict=True)
+                logits = out.logits
+                probs = F.softmax(logits, dim=1)[0].detach().cpu().numpy()
+                pred_idx = int(np.argmax(probs))
+
+                # Use last hidden state if available
+                hidden = None
+                if getattr(out, "hidden_states", None):
+                    hidden = out.hidden_states[-1]  # [B,N,D]
+                else:
+                    # Fallback: forward base model to get hidden_states
+                    try:
+                        base_out = self.swin_cls.swin.base_model(pixel_values=x_swin, output_hidden_states=True, return_dict=True)
+                        hidden = base_out.hidden_states[-1]
+                    except Exception:
+                        hidden = None
+
+                if hidden is None:
+                    # If no hidden, just save original (no overlay)
+                    cam_np = np.zeros((image.size[1], image.size[0]), dtype=np.float32)
+                else:
+                    hidden.retain_grad()
+                    score = logits[:, pred_idx].sum()
+                    score.backward()
+                    token_grads = hidden.grad  # [B,N,D]
+                    if token_grads is not None:
+                        ga = (token_grads[0] * hidden.detach()[0]).sum(dim=-1)  # [N]
+                        ga = F.relu(ga)
+                        N = ga.shape[0]
+                        S = int(N ** 0.5)
+                        if S * S == N:
+                            sal_map = ga.reshape(S, S).unsqueeze(0).unsqueeze(0)
+                            sal_up = F.interpolate(sal_map, size=image.size[::-1], mode="bicubic", align_corners=False)[0, 0]
+                            cam_np = sal_up.detach().cpu().numpy()
+                        else:
+                            cam_np = ga.detach().cpu().numpy()
+                        cam_np = self._percentile_normalize(cam_np, 2, 98) if enhance else self._normalize_np(cam_np)
+                    else:
+                        cam_np = np.zeros((image.size[1], image.size[0]), dtype=np.float32)
+
+            overlay = self.gradcam.overlay_on_image(
+                image,
+                cam_np,
+                alpha=0.45,
+                per_pixel=per_pixel or enhance,
                 alpha_min=alpha_min,
                 alpha_max=alpha_max,
             )

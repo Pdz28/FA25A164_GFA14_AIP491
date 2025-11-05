@@ -8,71 +8,98 @@
 </head>
 <body>
   <header>
-    <h1>Grad-CAM Visualizer (CNN + Swin Fusion)</h1>
+    <h1>Skin Cancer Detection Using CNN-VIT With Attention Mask</h1>
     <p>Upload an image, get prediction, and explore Grad-CAM with a slider.</p>
-    <div id="service-status" style="font-size:13px;margin-top:6px;color:#444">Checking service status…</div>
-    <p style="font-size:12px;margin-top:6px;color:#666">Note: token stage is fixed to the last stage (7×7). To enable EffNet visuals, place an EffNet checkpoint (e.g. <code>best_effnetb0.pth</code>) into the <code>weights/</code> folder and restart the server.</p>
+    <div id="service-status" style="font-size:13px;margin-top:6px;color:#f4f4f4">Checking service status…</div>
+    <p style="font-size:12px;margin-top:6px;color:#666">
   </header>
 
   <main class="container">
     <section class="left">
-      <h2>1) Upload</h2>
+      <h2></h2>
       <form id="upload-form">
-        <input id="file-input" type="file" name="file" accept="image/*" required />
+        <input id="file-input" type="file" name="file" accept="image/*" multiple />
         <select id="mode-select" title="Visualization mode">
           <option value="fusion" selected>Fusion (Grad-CAM + ViT saliency)</option>
           <!-- Fusion attention removed -->
           <option value="swin_patchcam">Swin Patch-CAM (tokens)</option>
           <option value="cnn">CNN Grad-CAM only</option>
           <option value="effnet">EffNet-B0 Grad-CAM</option>
+          <option value="swin">Swin-T Classifier</option>
         </select>
-        <label id="token-stage-container" style="display:none;margin-left:8px;font-size:13px;" title="Choose which Swin token grid to visualize">
-          Token stage
-          <select id="token-stage-select" style="margin-left:6px">
-            <option value="1">Global (1×1)</option>
-            <option value="7" selected>7×7 (last)</option>
-            <option value="14">14×14</option>
-            <option value="all">All stages</option>
-            <option value="hr">High-res (prefer 14×14)</option>
-            <option value="28">28×28</option>
-            <option value="56">56×56</option>
-          </select>
-        </label>
-        <!-- Token stage selector removed; default behavior uses 7x7 (last) -->
-        <label style="display:inline-flex;gap:6px;align-items:center" title="Boost visibility using percentile clipping and per‑pixel alpha">
-          <input id="enhance-toggle" type="checkbox" />
-          Enhanced contrast
-        </label>
-        <label style="display:inline-flex;gap:6px;align-items:center" title="Use per-pixel alpha blending for the overlay">
-          <input id="perpixel-toggle" type="checkbox" />
-          Per-pixel alpha
-        </label>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
-          <label style="font-size:12px">Alpha min <input id="alpha-min" type="number" step="0.05" min="0" max="1" value="0.0" style="width:64px;margin-left:6px"/></label>
-          <label style="font-size:12px">Alpha max <input id="alpha-max" type="number" step="0.05" min="0" max="1" value="0.6" style="width:64px;margin-left:6px"/></label>
-        </div>
+        <!-- Token stage and extra options temporarily removed for simplicity. -->
         <button type="submit">Analyze</button>
       </form>
-      <div class="image-box">
-        <img id="uploaded-preview" alt="Uploaded preview" />
+      <div id="multi-grid" style="display:flex;gap:18px;align-items:flex-start;margin-top:12px">
+        <div id="orig-column" style="display:flex;flex-direction:column;gap:12px">
+          <h3 style="margin:0 0 6px 0"> Click a slot to choose where to upload</h3>
+          <div class="grid-fluid grid-fixed">
+            <div id="slot-0" class="slot tile-fixed">
+              <img id="orig-0" alt="orig-0" />
+              <div id="placeholder-0" class="placeholder">
+                <button id="upload-btn-0" type="button" class="upload-btn">Upload</button>
+              </div>
+            </div>
+            <div id="slot-1" class="slot tile-fixed">
+              <img id="orig-1" alt="orig-1" />
+              <div id="placeholder-1" class="placeholder">
+                <button id="upload-btn-1" type="button" class="upload-btn">Upload</button>
+              </div>
+            </div>
+            <div id="slot-2" class="slot tile-fixed">
+              <img id="orig-2" alt="orig-2" />
+              <div id="placeholder-2" class="placeholder">
+                <button id="upload-btn-2" type="button" class="upload-btn">Upload</button>
+              </div>
+            </div>
+            <div id="slot-3" class="slot tile-fixed">
+              <img id="orig-3" alt="orig-3" />
+              <div id="placeholder-3" class="placeholder">
+                <button id="upload-btn-3" type="button" class="upload-btn">Upload</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div id="predictions" class="predictions hidden"></div>
     </section>
 
     <section class="right">
       <h2>2) Grad-CAM</h2>
-      <div class="compare-wrapper">
-        <div class="compare-box" id="compare-box">
-          <img id="compare-base" alt="Original" />
-          <div id="overlay" class="overlay">
-            <img id="compare-overlay" alt="Grad-CAM" />
+      <div id="gradcam-grid" class="grid-fluid grid-fixed">
+        <div class="res-card card-fixed">
+          <div id="res-slot-0" class="res-slot tile-fixed">
+            <img id="res-base-0" alt="res-base-0" />
+            <img id="res-overlay-0" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:none;pointer-events:none" alt="res-overlay-0" />
           </div>
-          <div id="handle" class="handle"></div>
+          <div class="res-caption" id="caption-0"></div>
         </div>
-        <input id="slider" type="range" min="0" max="100" value="50" />
-        <div class="labels">
-          <span>Before</span>
-          <span>After</span>
+        <div class="res-card card-fixed">
+          <div id="res-slot-1" class="res-slot tile-fixed">
+            <img id="res-base-1" alt="res-base-1" />
+            <img id="res-overlay-1" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:none;pointer-events:none" alt="res-overlay-1" />
+          </div>
+          <div class="res-caption" id="caption-1"></div>
+        </div>
+        <div class="res-card card-fixed">
+          <div id="res-slot-2" class="res-slot tile-fixed">
+            <img id="res-base-2" alt="res-base-2" />
+            <img id="res-overlay-2" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:none;pointer-events:none" alt="res-overlay-2" />
+          </div>
+          <div class="res-caption" id="caption-2"></div>
+        </div>
+        <div class="res-card card-fixed">
+          <div id="res-slot-3" class="res-slot tile-fixed">
+            <img id="res-base-3" alt="res-base-3" />
+            <img id="res-overlay-3" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:none;pointer-events:none" alt="res-overlay-3" />
+          </div>
+          <div class="res-caption" id="caption-3"></div>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <input id="slider" type="range" min="0" max="100" value="50" class="slider-fluid slider-fixed" />
+        <div class="labels" style="display:flex;justify-content:space-between;font-size:12px;color:#888">
+          <span>Less overlay</span>
+          <span>More overlay</span>
         </div>
       </div>
     </section>
@@ -82,6 +109,6 @@
     <small>Prototype for visualization only. Model: EfficientNet-B3 + Swin-T (LoRA). Token stage selector available when visualizing Swin tokens (Patch-CAM or Fusion). To enable EffNet visuals, place an EffNet checkpoint (e.g. <code>best_effnetb0.pth</code>) into the <code>weights/</code> folder and restart the server.</small>
   </footer>
 
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/app.js?v=20251105-1"></script>
 </body>
 </html>

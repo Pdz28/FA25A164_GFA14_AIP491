@@ -93,6 +93,17 @@ async def flutter_sw():
     return Response(content=js, media_type="application/javascript")
 
 
+@app.get("/.well-known/appspecific/com.chrome.devtools.json")
+async def chrome_devtools_hint():
+    """Some Chrome/Edge DevTools versions probe this path. Return an empty JSON to avoid noisy 404s."""
+    return JSONResponse({}, status_code=200)
+
+@app.get("/favicon.ico")
+async def favicon_quiet():
+    """Avoid 404 noise when the browser requests /favicon.ico."""
+    return Response(status_code=204)
+
+
 @app.post("/predict")
 async def predict(
     request: Request,
@@ -133,7 +144,15 @@ async def predict(
         msg = str(e)
         if "EffNet" in msg or "EffNet visualization" in msg:
             return JSONResponse({"error": msg}, status_code=400)
-        raise
+        # Fallback: return error to client
+        return JSONResponse({"error": msg}, status_code=400)
+    except Exception as e:
+        # Unexpected server error during prediction: log traceback and return JSON error
+        import traceback
+
+        tb = traceback.format_exc()
+        print(f"[predict] Unexpected error:\n{tb}")
+        return JSONResponse({"error": "Internal server error during prediction", "detail": str(e)}, status_code=500)
 
     # Convert to URLs for the frontend
     def to_url(p: str) -> str:
