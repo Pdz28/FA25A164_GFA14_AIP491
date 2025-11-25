@@ -22,8 +22,8 @@
         <select id="mode-select" title="Visualization mode">
           <option value="fusion" selected>Fusion (Grad-CAM + ViT saliency)</option>
           <!-- Fusion attention removed -->
-          <option value="swin_patchcam">Swin Patch-CAM (tokens)</option>
-          <option value="cnn">CNN Grad-CAM only</option>
+          <!-- <option value="swin_patchcam">Swin Patch-CAM (tokens)</option>
+          <option value="cnn">CNN Grad-CAM only</option> -->
           <option value="effnet">EffNet-B0 Grad-CAM</option>
           <option value="swin">Swin-T Classifier</option>
         </select>
@@ -95,7 +95,7 @@
           <div class="res-caption" id="caption-3"></div>
         </div>
       </div>
-      <div style="margin-top:10px">
+      <div class="slider-block-fixed" style="margin-top:10px">
         <input id="slider" type="range" min="0" max="100" value="50" class="slider-fluid slider-fixed" />
         <div class="labels" style="display:flex;justify-content:space-between;font-size:12px;color:#888">
           <span>Less overlay</span>
@@ -106,8 +106,6 @@
   </main>
 
   <footer>
-    <small>Prototype for visualization only. Model: EfficientNet-B3 + Swin-T (LoRA). Token stage selector available when visualizing Swin tokens (Patch-CAM or Fusion). To enable EffNet visuals, place an EffNet checkpoint (e.g. <code>best_effnetb0.pth</code>) into the <code>weights/</code> folder and restart the server.</small>
-  </footer>
 
   <script src="/static/js/app.js?v=20251105-1"></script>
 </body>

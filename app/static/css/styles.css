@@ -76,6 +76,8 @@ button:hover{background:#2563eb}
 #slider{width:100%}
 /* Constrain the Grad-CAM opacity slider to the right grid width (last tile edge) */
 #slider.slider-fixed{width:460px !important; display:block}
+/* Wrapper to align slider and its labels to the same fixed width as the grid */
+.slider-block-fixed{width:460px}
 .labels{display:flex;justify-content:space-between;color:#a9b4d6;font-size:12px}
 
 footer{padding:12px 20px;color:#a9b4d6;border-top:1px solid #1f2750}

@@ -63,7 +63,7 @@ class InferenceService:
 
         # 1) Try full state dict (.pth)
         pth_candidates = []
-        default_pth = os.path.join(weights_dir, "best_cnnswin_lora_binary.pth")
+        default_pth = os.path.join(weights_dir, "best_fusion_model.pth")
         if os.path.exists(default_pth):
             pth_candidates.append(default_pth)
         # any .pth in weights_dir
@@ -78,7 +78,21 @@ class InferenceService:
         for path in pth_candidates:
             try:
                 sd = torch.load(path, map_location=self.device)
-                self.model.load_state_dict(sd, strict=False)
+                # Accept several common checkpoint structures
+                candidate_sd = None
+                if isinstance(sd, dict):
+                    if any(k in sd for k in ("model", "model_state_dict", "state_dict")):
+                        for k in ("model", "model_state_dict", "state_dict"):
+                            if k in sd and isinstance(sd[k], dict):
+                                candidate_sd = sd[k]
+                                break
+                    # If keys look like real param tensors (e.g. 'classifier.0.weight'), treat full dict as state_dict
+                    if candidate_sd is None and all(isinstance(v, torch.Tensor) for v in sd.values()):
+                        candidate_sd = sd
+                # Fallback: if not dict or no match, assume it's already a state_dict
+                if candidate_sd is None:
+                    candidate_sd = sd
+                self.model.load_state_dict(candidate_sd, strict=False)
                 self.loaded_weights_info = f"Loaded checkpoint: {os.path.basename(path)}"
                 print(self.loaded_weights_info)
                 loaded = True

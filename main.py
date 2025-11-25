@@ -166,6 +166,114 @@ async def predict(
     }
 
 
+@app.post("/gradcam/effnet")
+async def gradcam_effnet(
+    request: Request,
+    file: UploadFile = File(...),
+    enhance: bool = Query(False),
+    per_pixel: bool = Query(False),
+    alpha_min: float = Query(0.0),
+    alpha_max: float = Query(0.6),
+):
+    """Grad-CAM using standalone EfficientNet-B0 classifier.
+
+    Returns overlay image and prediction using EffNet-only path.
+    """
+    service: InferenceService | None = getattr(request.app.state, "service", None)
+    if service is None:
+        return JSONResponse({"error": "Service not ready"}, status_code=503)
+
+    # Save upload
+    filename = file.filename or "upload.png"
+    name, _ = os.path.splitext(filename)
+    safe_name = name.replace(" ", "_")
+    upload_path = os.path.join(UPLOAD_DIR, f"{safe_name}.png")
+
+    img = Image.open(file.file).convert("RGB")
+    img.save(upload_path)
+
+    try:
+        result = service.predict_with_gradcam(
+            img,
+            OUTPUT_DIR,
+            mode="effnet",
+            enhance=enhance,
+            per_pixel=per_pixel,
+            alpha_min=alpha_min,
+            alpha_max=alpha_max,
+        )
+    except RuntimeError as e:
+        msg = str(e)
+        return JSONResponse({"error": msg}, status_code=400)
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[gradcam/effnet] Unexpected error:\n{tb}")
+        return JSONResponse({"error": "Internal server error", "detail": str(e)}, status_code=500)
+
+    def to_url(p: str) -> str:
+        return "/static/" + os.path.relpath(p, STATIC_DIR).replace("\\", "/")
+
+    return {
+        "pred_label": result["pred_label"],
+        "probs": result["probs"],
+        "uploaded_url": to_url(upload_path),
+        "gradcam_url": to_url(result["gradcam_path"]),
+    }
+
+
+@app.post("/gradcam/swin")
+async def gradcam_swin(
+    request: Request,
+    file: UploadFile = File(...),
+    enhance: bool = Query(False),
+    per_pixel: bool = Query(False),
+    alpha_min: float = Query(0.0),
+    alpha_max: float = Query(0.6),
+):
+    """Token saliency (Grad×Activation) using standalone Swin classifier."""
+    service: InferenceService | None = getattr(request.app.state, "service", None)
+    if service is None:
+        return JSONResponse({"error": "Service not ready"}, status_code=503)
+
+    filename = file.filename or "upload.png"
+    name, _ = os.path.splitext(filename)
+    safe_name = name.replace(" ", "_")
+    upload_path = os.path.join(UPLOAD_DIR, f"{safe_name}.png")
+
+    img = Image.open(file.file).convert("RGB")
+    img.save(upload_path)
+
+    try:
+        result = service.predict_with_gradcam(
+            img,
+            OUTPUT_DIR,
+            mode="swin",
+            enhance=enhance,
+            per_pixel=per_pixel,
+            alpha_min=alpha_min,
+            alpha_max=alpha_max,
+        )
+    except RuntimeError as e:
+        msg = str(e)
+        return JSONResponse({"error": msg}, status_code=400)
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[gradcam/swin] Unexpected error:\n{tb}")
+        return JSONResponse({"error": "Internal server error", "detail": str(e)}, status_code=500)
+
+    def to_url(p: str) -> str:
+        return "/static/" + os.path.relpath(p, STATIC_DIR).replace("\\", "/")
+
+    return {
+        "pred_label": result["pred_label"],
+        "probs": result["probs"],
+        "uploaded_url": to_url(upload_path),
+        "gradcam_url": to_url(result["gradcam_path"]),
+    }
+
+
 if __name__ == "__main__":
     # Convenience for local development: allow `python main.py` to run the server.
     # In production or when using auto-reload, prefer: `uvicorn main:app --reload`.
