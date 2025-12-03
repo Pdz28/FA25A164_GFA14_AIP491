@@ -124,7 +124,7 @@ class InferenceService:
                     print(f"Failed to load adapter {ap}: {e}")
 
         if not loaded:
-            self.loaded_weights_info = "No trained weights found; using backbone defaults."
+            self.loaded_weights_info = "No trained weights found; using backbone defaults with CrossModelAttention fusion."
             print(self.loaded_weights_info)
 
         # Prepare Grad-CAM on the last CNN block
@@ -269,7 +269,6 @@ class InferenceService:
 
             # Compute Grad-CAM map via EffNet helper (this will run backward)
             cam_np = self.effnet.compute_gradcam_map(x_eff, target_class=pred_idx)
-            # Apply same percentile normalization as fusion when requested
             cam_np = self._percentile_normalize(cam_np, 2, 98) if enhance else self._normalize_np(cam_np)
             # Overlay using the existing GradCAM utility
             overlay = self.gradcam.overlay_on_image(
@@ -343,17 +342,16 @@ class InferenceService:
             # all available Swin token stages. First compute logits once to pick pred_idx.
             with torch.enable_grad():
                 ts0 = (token_stage or "hr")
-                logits0, _ = self.model.forward_with_tokens(x_eff, x_swin, token_stage=ts0)
+                logits0, _, _, _ = self.model.forward_with_tokens(x_eff, x_swin, token_stage=ts0)
             probs = F.softmax(logits0, dim=1)[0].detach().cpu().numpy()
             pred_idx = int(np.argmax(probs))
-
             def _saliency_for_stage(stage_key: str):
                 # returns a 2D numpy saliency upsampled to image size
                 try:
                     self.model.zero_grad(set_to_none=True)
                     x_swin.requires_grad_(True)
                     with torch.enable_grad():
-                        logits, swin_tokens = self.model.forward_with_tokens(x_eff, x_swin, token_stage=stage_key)
+                        logits, swin_tokens, _, _ = self.model.forward_with_tokens(x_eff, x_swin, token_stage=stage_key)
                     swin_tokens.retain_grad()
                     score = logits[:, pred_idx].sum()
                     score.backward()
@@ -430,12 +428,18 @@ class InferenceService:
             with torch.enable_grad():
                 # Use selected or higher‑resolution Swin tokens if available
                 ts = (token_stage or "hr")
-                logits, swin_tokens = self.model.forward_with_tokens(x_eff, x_swin, token_stage=ts)
+                logits, swin_tokens, pooled_cnn, pooled_swin = self.model.forward_with_tokens(x_eff, x_swin, token_stage=ts)
             probs = F.softmax(logits, dim=1)[0].detach().cpu().numpy()
             pred_idx = int(np.argmax(probs))
 
             # retain grad for tokens
             swin_tokens.retain_grad()
+            # retain grads for branch pooled features to compute weights
+            try:
+                pooled_cnn.retain_grad()
+                pooled_swin.retain_grad()
+            except Exception:
+                pass
             score = logits[:, pred_idx].sum()
             score.backward()
 
@@ -455,13 +459,27 @@ class InferenceService:
                     sal_map = ga.reshape(S, S).unsqueeze(0).unsqueeze(0)  # [1,1,S,S]
                     sal_up = F.interpolate(sal_map, size=image.size[::-1], mode="bicubic", align_corners=False)[0, 0]
                     sal_np = sal_up.detach().cpu().numpy()
-                    sal_np = self._percentile_normalize(sal_np, 2, 98) if enhance else self._normalize_np(sal_np)
                 else:
                     sal_np = ga.detach().cpu().numpy()
-                    sal_np = self._percentile_normalize(sal_np, 2, 98) if enhance else self._normalize_np(sal_np)
-                # Fuse by max then min-max for consistent colors
-                fused = np.maximum(self._normalize_np(cam_np), self._normalize_np(sal_np))
-                cam_np = fused
+                sal_np = self._percentile_normalize(sal_np, 2, 98) if enhance else self._normalize_np(sal_np)
+            else:
+                sal_np = np.zeros((image.size[1], image.size[0]), dtype=np.float32)
+
+            # Gradient-weighted branch fusion
+            try:
+                pooled_cnn.retain_grad()
+                pooled_swin.retain_grad()
+            except Exception:
+                pass
+            g_cnn = pooled_cnn.grad.detach().abs().mean().item() if getattr(pooled_cnn, 'grad', None) is not None else 0.0
+            g_vit = pooled_swin.grad.detach().abs().mean().item() if getattr(pooled_swin, 'grad', None) is not None else 0.0
+            denom = (g_cnn + g_vit) if (g_cnn + g_vit) > 1e-12 else 1.0
+            w_cnn = g_cnn / denom
+            w_vit = g_vit / denom
+
+            cam_np_n = self._normalize_np(cam_np)
+            sal_np_n = self._normalize_np(sal_np)
+            cam_np = self._normalize_np(w_cnn * cam_np_n + w_vit * sal_np_n)
             # Restore flags
             for p, f in zip(target_layer.parameters(recurse=True), orig_flags):
                 p.requires_grad_(f)

@@ -6,6 +6,53 @@ from transformers import SwinModel
 from peft import get_peft_model, LoraConfig
 
 
+class CrossModelAttention(nn.Module):
+    def __init__(self, dim_cnn, dim_swin, embed_dim=512, num_heads=8, dropout=0.1):
+        super().__init__()
+        
+        # Project về cùng chiều không gian (embed_dim)
+        self.proj_cnn = nn.Linear(dim_cnn, embed_dim)   # Key/Value source
+        self.proj_swin = nn.Linear(dim_swin, embed_dim) # Query source
+        
+        # Multi-Head Attention
+        self.mha = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=num_heads, batch_first=True, dropout=dropout)
+        
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
+        
+        self.ffn = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim * 4),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(embed_dim * 4, embed_dim)
+        )
+
+    def forward(self, cnn_feat, swin_feat):
+        # cnn_feat: (Batch, 1280) -> Dùng làm KEY/VALUE
+        # swin_feat: (Batch, 768) -> Dùng làm QUERY
+        
+        # 1. Projection & Unsqueeze
+        # Query (Swin)
+        query = self.proj_swin(swin_feat).unsqueeze(1) # (Batch, 1, 512)
+        
+        # Key/Value (CNN)
+        key_value = self.proj_cnn(cnn_feat).unsqueeze(1) # (Batch, 1, 512)
+        
+        # 2. Attention: Swin "nhìn" vào CNN
+        # query=Swin, key=CNN, value=CNN
+        attn_output, _ = self.mha(query, key_value, key_value)
+        
+        # 3. Residual Connection: Cộng vào luồng chính (là luồng Query - Swin)
+        # Ý nghĩa: Swin features gốc + Thông tin chắt lọc từ CNN
+        x = self.norm1(query + attn_output)
+        
+        # 4. Feed Forward
+        x = x + self.ffn(x)
+        x = self.norm2(x)
+        
+        return x.squeeze(1)
+
+
 # class AttentionFusion(nn.Module):
 #     def __init__(self, d_cnn: int, d_swin: int, d_model: int = 768, num_heads: int = 12, dropout: float = 0.2):
 #         super().__init__()
@@ -69,17 +116,20 @@ class CNNViTFusion(nn.Module):
         self.swin_hidden = self.swin.config.hidden_size
         self.swin_out_norm = nn.LayerNorm(self.swin_hidden)
         
-        # 3. Fusion Head
-        fused_dim = self.cnn_out_dim + self.swin_hidden
-        self.dropout = nn.Dropout(0.2)
+        # 3. Fusion Head (Attention: Swin Query, CNN Key)
+        self.fusion_dim = 512 
+        self.attention_fusion = CrossModelAttention(
+            dim_cnn=self.cnn_out_dim,     # 1280
+            dim_swin=self.swin_hidden,    # 768
+            embed_dim=self.fusion_dim,    # 512
+            num_heads=8
+        )
+        
         self.classifier = nn.Sequential(
-           nn.Linear(fused_dim, 512),
-           nn.SiLU(),
-           nn.Dropout(0.2),
-           nn.Linear(512, 256),
-           nn.SiLU(),
-           nn.Dropout(0.1),
-           nn.Linear(256, num_classes)
+            nn.Linear(self.fusion_dim, 256),
+            nn.SiLU(),
+            nn.Dropout(0.2),
+            nn.Linear(256, num_classes)
         )
 
         # --- STRATEGY SETUP ---
@@ -92,21 +142,22 @@ class CNNViTFusion(nn.Module):
             p.requires_grad = True
 
     def forward(self, x_cnn, x_swin):
-        # CNN
+        # CNN Branch
         feats = self.cnn_backbone(x_cnn)
         feats = self.cnn_bn(feats)
         pooled = self.cnn_pool(feats).view(feats.size(0), -1)
-        pooled = self.cnn_out_bn1d(pooled)
+        cnn_out = self.cnn_out_bn1d(pooled) 
 
-        # Swin
-        swin_out = self.swin(pixel_values=x_swin)
-        swin_feats = swin_out.last_hidden_state.mean(dim=1)
-        swin_feats = self.swin_out_norm(swin_feats)
+        # Swin Branch
+        swin_res = self.swin(pixel_values=x_swin)
+        swin_feats = swin_res.last_hidden_state.mean(dim=1)
+        swin_out = self.swin_out_norm(swin_feats) 
 
-        # Fusion
-        fused = torch.cat((pooled, swin_feats), dim=1)
-        fused = self.dropout(fused)
-        logits = self.classifier(fused)
+        # FUSION
+        # Input vẫn truyền vào bình thường, logic đảo query/key nằm bên trong class CrossModelAttention
+        fused_feat = self.attention_fusion(cnn_feat=cnn_out, swin_feat=swin_out)
+        
+        logits = self.classifier(fused_feat)
         return logits
 
     def forward_with_tokens(self, x_cnn: torch.Tensor, x_swin: torch.Tensor, token_stage: str = "7"):
@@ -123,8 +174,8 @@ class CNNViTFusion(nn.Module):
         # CNN branch (mirror main forward, including BatchNorm1d)
         feats = self.cnn_backbone(x_cnn)
         feats = self.cnn_bn(feats)
-        pooled = self.cnn_pool(feats).view(feats.size(0), -1)
-        pooled = self.cnn_out_bn1d(pooled)
+        pooled_cnn = self.cnn_pool(feats).view(feats.size(0), -1)
+        pooled_cnn = self.cnn_out_bn1d(pooled_cnn)
 
         # Ask Swin for hidden states so we can choose a higher‑resolution token grid
         swin_out = self.swin(pixel_values=x_swin, output_hidden_states=True, return_dict=True)
@@ -190,14 +241,14 @@ class CNNViTFusion(nn.Module):
             pass
 
         # Aggregate Swin features same as main forward
-        swin_feats = last_tokens.mean(dim=1)
-        swin_feats = self.swin_out_norm(swin_feats)
+        pooled_swin = last_tokens.mean(dim=1)
+        pooled_swin = self.swin_out_norm(pooled_swin)
 
-        # Simple concatenation fusion (old self.fuse + norm removed)
-        fused = torch.cat((pooled, swin_feats), dim=1)
-        fused = self.dropout(fused)
-        logits = self.classifier(fused)
-        return logits, selected_tokens
+        # Attention fusion
+        fused_feat = self.attention_fusion(cnn_feat=pooled_cnn, swin_feat=pooled_swin)
+        logits = self.classifier(fused_feat)
+        # Return pooled features and attention fusion for gradient-weighted fusion at inference time
+        return logits, selected_tokens, pooled_cnn, pooled_swin
 
     # Helper to get a reference to the last conv layer for Grad-CAM hooks
     def get_last_cnn_layer(self) -> nn.Module:
