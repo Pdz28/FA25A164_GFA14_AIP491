@@ -1,87 +1,159 @@
+/* Model row layout - horizontal container for each model */
+.model-row {
+  margin-bottom: 30px;
+  padding: 20px;
+  background: #0f1430;
+  border: 1px solid #273069;
+  border-radius: 10px;
+}
+
+.model-title {
+  margin: 0 0 15px 0;
+  font-size: 18px;
+  color: #cfe2ff;
+  font-weight: 600;
+}
+
+/* Horizontal images row - displays multiple images side by side */
+.images-row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 15px !important;
+  padding: 5px 0;
+  align-items: flex-start !important;
+}
+
+.image-card {
+  display: inline-block !important;
+  width: 180px !important;
+  flex: 0 0 180px !important;
+  margin: 0 !important;
+}
+
+.image-container, .result-container {
+  position: relative;
+  width: 180px !important;
+  height: 180px !important;
+  background: #1a1f3a;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #273069;
+  display: block !important;
+  margin: 0 !important;
+}
+
+.image-container img, .result-container .image-wrapper img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block;
+}
+
+.image-container img:not([src]), .result-container img:not([src]) {
+  display: none;
+}
+
+.image-container img[src=""], .result-container img[src=""] {
+  display: none;
+}
+
+.image-label, .prediction-label {
+  text-align: center;
+  font-size: 13px;
+  color: #a9b4d6;
+  min-height: 20px;
+  line-height: 1.4;
+  margin-top: 5px !important;
+  display: block !important;
+  width: 180px !important;
+}
+
+.prediction-label {
+  font-size: 14px;
+}
+
+.placeholder {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.image-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.overlay-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.res-caption {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #bcd;
+  min-height: 20px;
+}
+
+.slider-block {
+  width: 100%;
+  max-width: 400px;
+  padding: 10px;
+  background: #0f1430;
+  border: 1px solid #273069;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.slider {
+  width: 100%;
+}
+
+.labels {
+  display: flex;
+  justify-content: space-between;
+  color: #a9b4d6;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
 /* Responsive grid helpers to avoid oversize tiles */
 :root{
 	--panel-width: 48vw;   /* width for each 2x2 grid panel */
 	--tile-gap: 12px;
 	--tile-radius: 8px;
 }
-
-.grid-fluid{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--tile-gap)}
-.slot,.res-slot{position:relative;width:100%;aspect-ratio:4/3;min-height:220px;border-radius:var(--tile-radius);overflow:hidden}
-.slot{background:#f4f4f4}
-.res-slot{background:#f4f4f4;border:1px solid #273069}
-.slot img,.res-slot img{width:100%;height:100%;object-fit:cover;display:block}
-/* Hide <img> without a usable src to avoid showing ALT text */
-.slot img:not([src]), .res-slot img:not([src]){display:none}
-.slot img[src=""], .res-slot img[src=""]{display:none}
-.placeholder{position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#666;font-weight:600}
-
-/* Centered upload button inside each tile */
-.upload-btn{
-	appearance:none;
-	border:1px solid #3b82f6;
-	background:#2563eb;
-	color:white;
-	padding:8px 14px;
-	border-radius:8px;
-	cursor:pointer;
-	font-weight:600;
-	box-shadow:0 2px 6px rgba(0,0,0,0.2);
-}
-.upload-btn:hover{ background:#1d4ed8 }
-
-.slider-fluid{width:100%}
-
-/* Fixed-size preset to mimic the original design (2x2 tiles at 220x160, panel 460px) */
-.grid-fixed{width:460px;grid-template-columns:repeat(2,220px)}
-.tile-fixed{width:220px;height:160px;aspect-ratio:auto}
-.slider-fixed{width:460px}
-
-/* Result card holds a tile and its caption stacked vertically */
-.res-card{display:flex;flex-direction:column;gap:6px}
-.card-fixed{width:220px}
-.res-caption{font-size:13px;color:#bbb;min-height:20px}
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;background:#0b1020;color:#e9eefb}
-/* Global UI scale (normalized) */
-:root{--ui-scale:1}
-/* Prefer zoom when available (affects layout size) */
-body{zoom:var(--ui-scale)}
-/* Fallback for browsers without zoom (may cause overflow clipping) */
-@supports not (zoom:1){
-	body{transform:scale(var(--ui-scale));transform-origin:top left}
-}
 header{padding:16px 24px;background:#101633;border-bottom:1px solid #1f2750}
 header h1{margin:0 0 6px;font-size:22px}
 header p{margin:0;color:#bcd}
 .container{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px}
-section h2{margin:0 0 10px;font-size:18px;color:#cfe2ff}
-.image-box, .compare-box{background:#0f1430;border:1px solid #273069;border-radius:10px;min-height:360px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
-.image-box img, .compare-box img{max-width:100%;max-height:100%;object-fit:contain}
-form{display:flex;gap:10px;margin-bottom:12px}
-button{background:#3b82f6;border:0;color:white;padding:8px 14px;border-radius:8px;cursor:pointer}
+section h2{margin:0 0 16px;font-size:18px;color:#cfe2ff}
+button{background:#3b82f6;border:0;color:white;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600}
 button:hover{background:#2563eb}
-.predictions{margin-top:10px;padding:10px;border:1px solid #273069;border-radius:8px;background:#0f1430}
-.hidden{display:none}
-
-/* Compare slider */
-.compare-wrapper{display:flex;flex-direction:column;gap:10px}
-.compare-box{aspect-ratio:16/10;position:relative}
-/* Ensure both images fill the box identically so the slider aligns */
-.compare-box img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
-/* Use clip-path instead of changing width so the top image doesn't scale */
-.compare-box{--clip:50%}
-.overlay{position:absolute;inset:0;overflow:hidden;clip-path: inset(0 calc(100% - var(--clip)) 0 0)}
-.overlay img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
-.handle{position:absolute;top:0;bottom:0;left:calc(var(--clip) - 1px);width:2px;background:#ffffff88}
-#slider{width:100%}
-/* Constrain the Grad-CAM opacity slider to the right grid width (last tile edge) */
-#slider.slider-fixed{width:460px !important; display:block}
-/* Wrapper to align slider and its labels to the same fixed width as the grid */
-.slider-block-fixed{width:460px}
-.labels{display:flex;justify-content:space-between;color:#a9b4d6;font-size:12px}
-
+form{margin-bottom:20px}
+input[type="file"]{margin-bottom:10px}
+#progress{display:none;padding:12px;background:#1a1f3a;border:1px solid #3b82f6;border-radius:8px;color:#3b82f6;font-weight:600;margin-top:15px}
+#file-count{color:#44ff44;font-weight:600;margin-top:8px;display:block}
 footer{padding:12px 20px;color:#a9b4d6;border-top:1px solid #1f2750}
 @media (max-width: 900px){
 	.container{grid-template-columns:1fr}
-	:root{ --panel-width: 96vw }
 }

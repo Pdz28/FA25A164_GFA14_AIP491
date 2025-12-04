@@ -274,6 +274,84 @@ async def gradcam_swin(
     }
 
 
+@app.post("/predict_all_models")
+async def predict_all_models(
+    request: Request,
+    file: UploadFile = File(...),
+    token_stage: str = Query("7", description="Swin token stage for fusion: 7/14/28/56; default is 7"),
+    enhance: bool = Query(False),
+    per_pixel: bool = Query(False),
+    alpha_min: float = Query(0.0),
+    alpha_max: float = Query(0.6),
+):
+    """Run inference and GradCAM visualization for all 3 models (Fusion, EffNet, Swin) at once."""
+    service: InferenceService | None = getattr(request.app.state, "service", None)
+    if service is None:
+        return JSONResponse({"error": "Service not ready"}, status_code=503)
+
+    # Save upload
+    filename = file.filename or "upload.png"
+    name, _ = os.path.splitext(filename)
+    safe_name = name.replace(" ", "_")
+    upload_path = os.path.join(UPLOAD_DIR, f"{safe_name}.png")
+
+    img = Image.open(file.file).convert("RGB")
+    img.save(upload_path)
+
+    def to_url(p: str) -> str:
+        return "/static/" + os.path.relpath(p, STATIC_DIR).replace("\\", "/")
+
+    results = {}
+    models = ["fusion", "effnet", "swin"]
+    
+    for mode in models:
+        try:
+            # Pass token_stage only for fusion mode
+            kwargs = {
+                "mode": mode,
+                "enhance": enhance,
+                "per_pixel": per_pixel,
+                "alpha_min": alpha_min,
+                "alpha_max": alpha_max,
+            }
+            if mode == "fusion":
+                kwargs["token_stage"] = token_stage
+            
+            result = service.predict_with_gradcam(
+                img,
+                OUTPUT_DIR,
+                **kwargs
+            )
+            results[mode] = {
+                "pred_label": result["pred_label"],
+                "probs": result["probs"],
+                "uploaded_url": to_url(upload_path),
+                "gradcam_url": to_url(result["gradcam_path"]),
+                "error": None,
+            }
+        except RuntimeError as e:
+            results[mode] = {
+                "error": str(e),
+                "pred_label": None,
+                "probs": None,
+                "uploaded_url": to_url(upload_path),
+                "gradcam_url": None,
+            }
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            print(f"[predict_all_models/{mode}] Unexpected error:\n{tb}")
+            results[mode] = {
+                "error": f"Internal error: {str(e)}",
+                "pred_label": None,
+                "probs": None,
+                "uploaded_url": to_url(upload_path),
+                "gradcam_url": None,
+            }
+
+    return results
+
+
 if __name__ == "__main__":
     # Convenience for local development: allow `python main.py` to run the server.
     # In production or when using auto-reload, prefer: `uvicorn main:app --reload`.

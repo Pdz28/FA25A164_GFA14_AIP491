@@ -11,102 +11,69 @@
     <h1>Skin Cancer Detection Using CNN-VIT With Attention Mask</h1>
     <p>Upload an image, get prediction, and explore Grad-CAM with a slider.</p>
     <div id="service-status" style="font-size:13px;margin-top:6px;color:#f4f4f4">Checking service status…</div>
-    <p style="font-size:12px;margin-top:6px;color:#666">
   </header>
 
   <main class="container">
     <section class="left">
-      <h2></h2>
+      <h2>1) Upload Images (Max 10)</h2>
       <form id="upload-form">
         <input id="file-input" type="file" name="file" accept="image/*" multiple />
-        <select id="mode-select" title="Visualization mode">
-          <option value="fusion" selected>Fusion (Grad-CAM + ViT saliency)</option>
-          <!-- Fusion attention removed -->
-          <!-- <option value="swin_patchcam">Swin Patch-CAM (tokens)</option>
-          <option value="cnn">CNN Grad-CAM only</option> -->
-          <option value="effnet">EffNet-B0 Grad-CAM</option>
-          <option value="swin">Swin-T Classifier</option>
-        </select>
-        <!-- Token stage and extra options temporarily removed for simplicity. -->
-        <button type="submit">Analyze</button>
+        <button type="submit">Analyze All Models</button>
+        <span id="file-count" style="margin-left:10px;color:#bcd;font-size:14px"></span>
       </form>
-      <div id="multi-grid" style="display:flex;gap:18px;align-items:flex-start;margin-top:12px">
-        <div id="orig-column" style="display:flex;flex-direction:column;gap:12px">
-          <h3 style="margin:0 0 6px 0"> Click a slot to choose where to upload</h3>
-          <div class="grid-fluid grid-fixed">
-            <div id="slot-0" class="slot tile-fixed">
-              <img id="orig-0" alt="orig-0" />
-              <div id="placeholder-0" class="placeholder">
-                <button id="upload-btn-0" type="button" class="upload-btn">Upload</button>
-              </div>
-            </div>
-            <div id="slot-1" class="slot tile-fixed">
-              <img id="orig-1" alt="orig-1" />
-              <div id="placeholder-1" class="placeholder">
-                <button id="upload-btn-1" type="button" class="upload-btn">Upload</button>
-              </div>
-            </div>
-            <div id="slot-2" class="slot tile-fixed">
-              <img id="orig-2" alt="orig-2" />
-              <div id="placeholder-2" class="placeholder">
-                <button id="upload-btn-2" type="button" class="upload-btn">Upload</button>
-              </div>
-            </div>
-            <div id="slot-3" class="slot tile-fixed">
-              <img id="orig-3" alt="orig-3" />
-              <div id="placeholder-3" class="placeholder">
-                <button id="upload-btn-3" type="button" class="upload-btn">Upload</button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div id="progress" style="display:none;margin:10px 0;color:#3b82f6;font-weight:600"></div>
+      
+      <!-- Fusion Model Row -->
+      <div class="model-row">
+        <h3 class="model-title">Fusion Model</h3>
+        <div class="images-row" id="orig-row-fusion"></div>
+      </div>
+      
+      <!-- EffNet Model Row -->
+      <div class="model-row">
+        <h3 class="model-title">EfficientNet-B0</h3>
+        <div class="images-row" id="orig-row-effnet"></div>
+      </div>
+      
+      <!-- Swin Model Row -->
+      <div class="model-row">
+        <h3 class="model-title">Swin Transformer</h3>
+        <div class="images-row" id="orig-row-swin"></div>
       </div>
     </section>
 
     <section class="right">
-      <h2>2) Grad-CAM</h2>
-      <div id="gradcam-grid" class="grid-fluid grid-fixed">
-        <div class="res-card card-fixed">
-          <div id="res-slot-0" class="res-slot tile-fixed">
-            <img id="res-base-0" alt="res-base-0" />
-            <img id="res-overlay-0" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:none;pointer-events:none" alt="res-overlay-0" />
-          </div>
-          <div class="res-caption" id="caption-0"></div>
-        </div>
-        <div class="res-card card-fixed">
-          <div id="res-slot-1" class="res-slot tile-fixed">
-            <img id="res-base-1" alt="res-base-1" />
-            <img id="res-overlay-1" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:none;pointer-events:none" alt="res-overlay-1" />
-          </div>
-          <div class="res-caption" id="caption-1"></div>
-        </div>
-        <div class="res-card card-fixed">
-          <div id="res-slot-2" class="res-slot tile-fixed">
-            <img id="res-base-2" alt="res-base-2" />
-            <img id="res-overlay-2" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:none;pointer-events:none" alt="res-overlay-2" />
-          </div>
-          <div class="res-caption" id="caption-2"></div>
-        </div>
-        <div class="res-card card-fixed">
-          <div id="res-slot-3" class="res-slot tile-fixed">
-            <img id="res-base-3" alt="res-base-3" />
-            <img id="res-overlay-3" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:none;pointer-events:none" alt="res-overlay-3" />
-          </div>
-          <div class="res-caption" id="caption-3"></div>
+      <h2>2) Grad-CAM Visualization</h2>
+      <div class="slider-block" style="margin-bottom:20px">
+        <input id="slider" type="range" min="0" max="100" value="50" class="slider" />
+        <div class="labels" style="display:flex;justify-content:space-between;font-size:12px;color:#888">
+          <span>Original</span>
+          <span>Full Overlay</span>
         </div>
       </div>
-      <div class="slider-block-fixed" style="margin-top:10px">
-        <input id="slider" type="range" min="0" max="100" value="50" class="slider-fluid slider-fixed" />
-        <div class="labels" style="display:flex;justify-content:space-between;font-size:12px;color:#888">
-          <span>Less overlay</span>
-          <span>More overlay</span>
-        </div>
+      
+      <!-- Fusion Model Result Row -->
+      <div class="model-row">
+        <h3 class="model-title">Fusion Model</h3>
+        <div class="images-row" id="result-row-fusion"></div>
+      </div>
+      
+      <!-- EffNet Model Result Row -->
+      <div class="model-row">
+        <h3 class="model-title">EfficientNet-B0</h3>
+        <div class="images-row" id="result-row-effnet"></div>
+      </div>
+      
+      <!-- Swin Model Result Row -->
+      <div class="model-row">
+        <h3 class="model-title">Swin Transformer</h3>
+        <div class="images-row" id="result-row-swin"></div>
       </div>
     </section>
   </main>
 
   <footer>
 
-  <script src="/static/js/app.js?v=20251105-1"></script>
+  <script src="/static/js/app.js?v=20251204-debug"></script>
 </body>
 </html>
