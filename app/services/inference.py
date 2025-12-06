@@ -58,14 +58,38 @@ class InferenceService:
         )
 
     def _load_model(self, weights_dir: str):
-        self.model = CNNViTFusion(num_classes=len(self.class_names), img_size=self.img_size)
+        from peft import get_peft_model, LoraConfig
+        
+        # Initialize base model with new architecture parameters
+        self.model = CNNViTFusion(
+            num_classes=len(self.class_names), 
+            img_size=self.img_size,
+            d_model=768,
+            num_heads=8
+        )
         self.model.to(self.device).eval()
+        
+        # Apply LoRA to Swin Transformer
+        lora_config = LoraConfig(
+            r=16,
+            lora_alpha=32,
+            target_modules=["query", "key", "q_proj", "k_proj", "out_proj"],
+            lora_dropout=0.05,
+            bias="none",
+            modules_to_save=[],
+        )
+        self.model.swin = get_peft_model(self.model.swin, lora_config)
 
-        # 1) Try full state dict (.pth)
+        # 1) Try full state dict (.pth) - prioritize best_hybrid_model.pth
         pth_candidates = []
+        hybrid_pth = os.path.join(weights_dir, "best_hybrid_model.pth")
+        if os.path.exists(hybrid_pth):
+            pth_candidates.append(hybrid_pth)
+        
         default_pth = os.path.join(weights_dir, "best_fusion_model.pth")
         if os.path.exists(default_pth):
             pth_candidates.append(default_pth)
+        
         # any .pth in weights_dir
         if os.path.isdir(weights_dir):
             for fn in os.listdir(weights_dir):
@@ -77,12 +101,12 @@ class InferenceService:
         loaded = False
         for path in pth_candidates:
             try:
-                sd = torch.load(path, map_location=self.device)
+                sd = torch.load(path, map_location=self.device, weights_only=False)
                 # Accept several common checkpoint structures
                 candidate_sd = None
                 if isinstance(sd, dict):
-                    if any(k in sd for k in ("model", "model_state_dict", "state_dict")):
-                        for k in ("model", "model_state_dict", "state_dict"):
+                    if any(k in sd for k in ("model", "model_state_dict", "state_dict", "model_state")):
+                        for k in ("model", "model_state_dict", "state_dict", "model_state"):
                             if k in sd and isinstance(sd[k], dict):
                                 candidate_sd = sd[k]
                                 break
@@ -92,8 +116,13 @@ class InferenceService:
                 # Fallback: if not dict or no match, assume it's already a state_dict
                 if candidate_sd is None:
                     candidate_sd = sd
-                self.model.load_state_dict(candidate_sd, strict=False)
+                
+                load_result = self.model.load_state_dict(candidate_sd, strict=False)
                 self.loaded_weights_info = f"Loaded checkpoint: {os.path.basename(path)}"
+                if load_result.missing_keys:
+                    print(f"Missing keys: {len(load_result.missing_keys)}")
+                if load_result.unexpected_keys:
+                    print(f"Unexpected keys: {len(load_result.unexpected_keys)}")
                 print(self.loaded_weights_info)
                 loaded = True
                 break
@@ -240,7 +269,7 @@ class InferenceService:
 
         if mode == "cnn":
             # Old behavior: CAM from the CNN branch only (still post-fusion w.r.t. logit)
-            logits = self.model(x_eff, x_swin)
+            logits, alpha, cnn_logits, swin_logits = self.model(x_eff, x_swin)
             probs = F.softmax(logits, dim=1)[0].detach().cpu().numpy()
             pred_idx = int(np.argmax(probs))
             cam = self.gradcam.generate(x_eff, x_swin, target_class=pred_idx, upsample_size=image.size[::-1])
@@ -342,7 +371,7 @@ class InferenceService:
             # all available Swin token stages. First compute logits once to pick pred_idx.
             with torch.enable_grad():
                 ts0 = (token_stage or "hr")
-                logits0, _, _, _ = self.model.forward_with_tokens(x_eff, x_swin, token_stage=ts0)
+                logits0, swin_tokens0, cnn_pool0, swin_pool0 = self.model.forward_with_tokens(x_eff, x_swin, token_stage=ts0)
             probs = F.softmax(logits0, dim=1)[0].detach().cpu().numpy()
             pred_idx = int(np.argmax(probs))
             def _saliency_for_stage(stage_key: str):
@@ -351,7 +380,7 @@ class InferenceService:
                     self.model.zero_grad(set_to_none=True)
                     x_swin.requires_grad_(True)
                     with torch.enable_grad():
-                        logits, swin_tokens, _, _ = self.model.forward_with_tokens(x_eff, x_swin, token_stage=stage_key)
+                        logits, swin_tokens, cnn_pool_stage, swin_pool_stage = self.model.forward_with_tokens(x_eff, x_swin, token_stage=stage_key)
                     swin_tokens.retain_grad()
                     score = logits[:, pred_idx].sum()
                     score.backward()

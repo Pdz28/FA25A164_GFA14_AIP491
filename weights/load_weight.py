@@ -30,9 +30,9 @@ def load_weight(
 
     Returns the local file path if present (existing or downloaded) else None.
     """
-    # Defaults based on user's repo
+    # Defaults based on user's repo - updated to use new hybrid model
     repo_id = repo_id or _get_env(repo_env, "PDZ2810/b3_swin_fusion_skin-cancer")
-    filename = filename or _get_env(file_env, "best_cnnswin_lora_binary_continue.pth")
+    filename = filename or _get_env(file_env, "best_hybrid_model.pth")
 
     if not repo_id or not filename:
         return None

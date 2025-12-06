@@ -97,7 +97,7 @@ class GradCAM:
 
         # Make sure grad tracking is enabled during forward
         with torch.enable_grad():
-            logits = self.model(x_cnn, x_swin)  # forward collects activations
+            logits, alpha, cnn_logits, swin_logits = self.model(x_cnn, x_swin)  # forward collects activations
         if target_class is None:
             target_class = logits.argmax(dim=1).item()
         score = logits[:, target_class].sum()
