@@ -43,10 +43,3 @@ class SwinTinyFull(nn.Module):
         outputs = self.swin(pixel_values=x_swin)
         return outputs.logits
 
-# Default train-time augmentation used when SwinDataset(augment=True)
-train_transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(10),
-    transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.02),
-])

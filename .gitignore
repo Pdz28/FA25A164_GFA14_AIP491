@@ -113,6 +113,10 @@ training/data/valid/**
 !training/data/val/.gitkeep
 !training/data/valid/.gitkeep
 
+# Ignore local training checkpoints (keep production checkpoints separate)
+training/save_checkpoints/**
+!training/save_checkpoints/.gitkeep
+
 # Training artifacts
 wandb/
 mlruns/

@@ -12,9 +12,9 @@ from PIL import Image
 from torchvision import transforms
 from transformers import AutoImageProcessor
 
-from app.models.cnnswin import CNNViTFusion
+from app.models.hybridmodel import CNNViTFusion
 from app.utils.gradcam import GradCAM
-from app.models.swin import SwinTinyFull
+from app.models.swintiny import SwinTinyFull
 
 
 class InferenceService:
@@ -80,15 +80,15 @@ class InferenceService:
         )
         self.model.swin = get_peft_model(self.model.swin, lora_config)
 
-        # 1) Try full state dict (.pth) - prioritize best_hybrid_model.pth
+        # 1) Try full state dict (.pth) - prioritize hybrid_model.pth
         pth_candidates = []
-        hybrid_pth = os.path.join(checkpoints_dir, "best_hybrid_model.pth")
+        hybrid_pth = os.path.join(checkpoints_dir, "hybrid_model.pth")
         if os.path.exists(hybrid_pth):
             pth_candidates.append(hybrid_pth)
         
-        default_pth = os.path.join(checkpoints_dir, "best_fusion_model.pth")
-        if os.path.exists(default_pth):
-            pth_candidates.append(default_pth)
+        # default_pth = os.path.join(checkpoints_dir, "best_fusion_model.pth")
+        # if os.path.exists(default_pth):
+        #     pth_candidates.append(default_pth)
         
         # any .pth in checkpoints_dir
         if os.path.isdir(checkpoints_dir):
@@ -162,7 +162,7 @@ class InferenceService:
 
         # Optional: prepare a standalone EfficientNet-B0 classifier for separate visualization
         try:
-            from app.models.cnn_b0 import EffNetClassifier
+            from app.models.efficientnetb0 import EffNetClassifier
 
             self.effnet = EffNetClassifier(num_classes=len(self.class_names), img_size=self.img_size)
             self.effnet.to(self.device).eval()
@@ -205,7 +205,7 @@ class InferenceService:
             ]
             if os.path.isdir(checkpoints_dir):
                 for fn in os.listdir(checkpoints_dir):
-                    if fn.lower().startswith("best_swin") and fn.lower().endswith(".pth"):
+                    if fn.lower().startswith("swin-tiny") and fn.lower().endswith(".pth"):
                         p = os.path.join(checkpoints_dir, fn)
                         if p not in swin_candidates:
                             swin_candidates.append(p)

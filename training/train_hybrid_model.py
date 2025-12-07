@@ -25,7 +25,7 @@ root_str = str(PROJECT_ROOT)
 if root_str not in sys.path:
     sys.path.insert(0, root_str)
 
-from app.models.cnnswin import CNNViTFusion
+from app.models.hybridmodel import CNNViTFusion
 from peft import get_peft_model, LoraConfig
 
 
@@ -60,7 +60,7 @@ class Config:
     swin_stage3_unfreeze_epoch = 18
 
     # Checkpointing
-    checkpoint_dir = "training/checkpoint"
+    checkpoint_dir = "training/save_checkpoints/hybrid_model"
     early_stopping_patience = 40
 
 
@@ -474,7 +474,7 @@ def main():
                 'optimizer_state_dict': optimizer.state_dict(),
                 'val_loss': val_loss,
                 'val_acc': val_acc,
-            }, f"{config.checkpoint_dir}/best_model.pth")
+            }, f"{config.checkpoint_dir}/hybridmodel.pth")
             print(f"  Best model saved!")
         else:
             patience_counter += 1

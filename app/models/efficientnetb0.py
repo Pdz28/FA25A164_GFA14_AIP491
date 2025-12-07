@@ -14,13 +14,12 @@ from PIL import Image
 class EffNetClassifier(nn.Module):
     def __init__(self, num_classes=2, img_size=(224,224)):
         super().__init__()
-        # 🟢 Dùng EfficientNet-B0 và trọng số ImageNet
         effnet = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.IMAGENET1K_V1)
         self.backbone = effnet.features
         self.pool = nn.AdaptiveAvgPool2d((1,1))
         self.dropout = nn.Dropout(0.3)
-        self.fc = nn.Linear(1280, num_classes)  # ⚠️ B0 có output dim = 1280 (khác B3 = 1536)
-
+        self.fc = nn.Linear(1280, num_classes)
+ 
     def forward(self, x):
         feats = self.backbone(x)
         pooled = self.pool(feats).view(feats.size(0), -1)
