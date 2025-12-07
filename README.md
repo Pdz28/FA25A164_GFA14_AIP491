@@ -91,7 +91,7 @@ The system uses checkpoints from the `checkpoints/` folder:
 
 ### Main Fusion Model
 - **Required**: Place your trained fusion model as `best_hybrid_model.pth` in `checkpoints/`
-- **Auto-loading**: System prioritizes: `best_hybrid_model.pth` → `best_swin.pth` → `best_effnetb0.pth`
+- **Auto-loading**: System prioritizes: `best_hybrid_model.pth` → `swin-tiny` → `best_effnetb0.pth`
 - **Fallback**: If no checkpoint exists, uses ImageNet pretrained checkpoints (predictions will be untrained but system functions)
 
 ### Optional EfficientNet Visualizer
@@ -103,7 +103,7 @@ The system uses checkpoints from the `checkpoints/` folder:
 ```python
 # Priority order for fusion model:
 1. best_hybrid_model.pth      # Recommended name
-2. best_swin.pth               # Fallback 1
+2. swin-tiny               # Fallback 1
 3. best_effnetb0.pth           # Fallback 2
 ```
 

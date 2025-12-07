@@ -55,9 +55,9 @@ class Config:
 
     # Scheduling
     label_smoothing = 0.08
-    effnet_unfreeze_epoch = 1
+    effnet_unfreeze_epoch = 8
     backbone_warmup_epochs = 8
-    swin_stage3_unfreeze_epoch = 2
+    swin_stage3_unfreeze_epoch = 18
 
     # Checkpointing
     checkpoint_dir = "training/checkpoint"

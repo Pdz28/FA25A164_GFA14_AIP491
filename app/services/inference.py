@@ -201,7 +201,7 @@ class InferenceService:
             self.swin_cls.to(self.device).eval()
             # Try to load an explicit Swin checkpoint if present
             swin_candidates = [
-                os.path.join(checkpoints_dir, "best_swin.pth"),
+                os.path.join(checkpoints_dir, "swin-tiny"),
             ]
             if os.path.isdir(checkpoints_dir):
                 for fn in os.listdir(checkpoints_dir):

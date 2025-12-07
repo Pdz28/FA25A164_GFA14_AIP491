@@ -169,7 +169,7 @@ POST /predict_all_models
 | `HOST` | 0.0.0.0 | Server host |
 | `PORT` | 8000 | Server port |
 | `DEVICE` | auto | Device (cuda/cpu/auto) |
-| `HF_REPO_ID` | PDZ2810/... | Hugging Face repo |
+
 | `HF_WEIGHT_FILE` | best_hybrid_model.pth | Weight filename |
 | `HF_TOKEN` | - | HF API token |
 | `LOG_LEVEL` | INFO | Logging level |

@@ -36,10 +36,6 @@ class Settings(BaseSettings):
     img_size: tuple[int, int] = (224, 224)
     class_names: list[str] = ["benign", "malignant"]
     
-    # Hugging Face
-    hf_repo_id: str = "PDZ2810/b3_swin_fusion_skin-cancer"
-    hf_weight_file: str = "best_hybrid_model.pth"
-    hf_token: str | None = None
     
     # GradCAM
     default_gradcam_mode: str = "fusion"

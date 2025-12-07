@@ -11,12 +11,11 @@ from transformers import SwinForImageClassification, AutoImageProcessor
 from sklearn.utils.class_weight import compute_class_weight
 
 class SwinDataset(Dataset):
-    def __init__(self, folder, processor_swin=None, augment=False):
+    def __init__(self, folder, processor_swin=None):
         self.ds = datasets.ImageFolder(folder, transform=None)
         self.samples = self.ds.samples
         self.classes = self.ds.classes
         self.processor_swin = processor_swin
-        self.augment = augment
 
     def __len__(self):
         return len(self.samples)
@@ -24,15 +23,8 @@ class SwinDataset(Dataset):
     def __getitem__(self, idx):
         path, label = self.samples[idx]
         img = Image.open(path).convert("RGB")
-
-        if self.augment:
-            img = train_transform(img)
-
-        if self.processor_swin:
-            pixel_values = self.processor_swin(images=img, return_tensors="pt")["pixel_values"].squeeze(0)
-            return pixel_values, label
-        else:
-            return transforms.ToTensor()(img), label
+        pixel_values = self.processor_swin(images=img, return_tensors="pt")["pixel_values"].squeeze(0)
+        return pixel_values, label
 
 class SwinTinyFull(nn.Module):
     def __init__(self, num_classes=2, dropout_p=0.4):
@@ -42,13 +34,11 @@ class SwinTinyFull(nn.Module):
             num_labels=num_classes,
             ignore_mismatched_sizes=True
         )
-        # ✅ Thêm dropout trước classifier
         in_features = self.swin.classifier.in_features
         self.swin.classifier = nn.Sequential(
             nn.Dropout(dropout_p),
             nn.Linear(in_features, num_classes)
         )
-
     def forward(self, x_swin):
         outputs = self.swin(pixel_values=x_swin)
         return outputs.logits
