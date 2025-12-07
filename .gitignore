@@ -1,50 +1,128 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 *.pyo
 *.so
+.Python
 *.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
 .venv/
 venv/
 env/
+ENV/
 .venv*/
-pip-wheel-metadata/
-.pytest_cache/
-.mypy_cache/
-.coverage
-htmlcov/
 
-# IDE/editor
+# PyTorch & ML
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.safetensors
+checkpoints/
+weights/*.pth
+weights/*.pt
+weights/*.ckpt
+weights/*.bin
+weights/*.safetensors
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment & Secrets
+.env
+.env.*
+*.env
+.env.local
+.env.*.local
+.python-version
+
+# IDE/Editor
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+*.tmp
+*.temp
 
-# Env and secrets
-.env
-.env.*
-*.env
-.python-version
-
-# Build/artifacts
+# Build/Distribution
 build/
 dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
 
-# Data/weights (managed via Hugging Face Hub)
-weights/*.pth
-weights/*.pt
-weights/*.bin
-weights/*.safetensors
+# Testing
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+*.cover
+.hypothesis/
 
-# App runtime outputs
-app/static/uploads/
-app/static/outputs/
-static/uploads/
-static/outputs/
+# Logs
+*.log
+logs/
+*.out
+*.err
 
-# Node/Next.js
+# Data & Uploads
+app/static/uploads/*
+app/static/outputs/*
+static/uploads/*
+static/outputs/*
+!app/static/uploads/.gitkeep
+!app/static/outputs/.gitkeep
+!static/uploads/.gitkeep
+!static/outputs/.gitkeep
+
+# Dataset (large files)
+data/
+datasets/
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Training datasets (images) - keep folders, ignore contents
+training/data/train/**
+training/data/val/**
+training/data/valid/**
+!training/data/train/.gitkeep
+!training/data/val/.gitkeep
+!training/data/valid/.gitkeep
+
+# Training artifacts
+wandb/
+mlruns/
+runs/
+experiments/
+tensorboard/
+*.csv
+*.json.lock
+
+# Node.js & Next.js
 node_modules/
 frontend/node_modules/
 .next/
@@ -57,3 +135,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.pnpm-debug.log*
+*.local
+
+# Package builds
+*.whl
+*.tar.gz
+*.egg
