@@ -31,7 +31,7 @@ async function refreshHealth(){
     }
     const j = await res.json();
     const parts = [];
-    parts.push(j.loaded_weights || 'no weights');
+    parts.push(j.loaded_checkpoints || 'no checkpoints');
     parts.push('device: ' + (j.device || 'unknown'));
     parts.push('EffNet: ' + (j.effnet_loaded ? 'available' : 'unavailable'));
     el.textContent = 'Service ready — ' + parts.join(' · ');

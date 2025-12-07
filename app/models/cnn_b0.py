@@ -87,8 +87,8 @@ class EffNetClassifier(nn.Module):
                 raise RuntimeError('Grad-CAM hooks did not capture activations/gradients')
 
             # acts: [B,C,H,W], grads: [B,C,H,W]
-            weights = grads.mean(dim=(2, 3), keepdim=True)  # [B,C,1,1]
-            cam = (weights * acts).sum(dim=1, keepdim=False)  # [B,H,W]
+            checkpoints = grads.mean(dim=(2, 3), keepdim=True)  # [B,C,1,1]
+            cam = (checkpoints * acts).sum(dim=1, keepdim=False)  # [B,H,W]
             cam = torch.relu(cam)
             cam = cam[0].cpu().float()
             # normalize to 0..1

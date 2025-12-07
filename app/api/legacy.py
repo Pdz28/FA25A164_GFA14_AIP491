@@ -32,7 +32,7 @@ async def health_legacy(service: ServiceDep, settings: SettingsDep):
     return {
         "ready": True,
         "device": str(service.device),
-        "loaded_weights": getattr(service, "loaded_weights_info", ""),
+        "loaded_checkpoints": getattr(service, "loaded_checkpoints_info", ""),
         "effnet_loaded": bool(effnet_loaded),
     }
 

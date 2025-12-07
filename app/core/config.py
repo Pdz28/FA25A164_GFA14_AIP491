@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     
     # Paths
     base_dir: Path = Path(__file__).parent.parent.parent
-    weights_dir: Path = base_dir / "weights"
+    checkpoints_dir: Path = base_dir / "checkpoints"
     static_dir: Path = base_dir / "app" / "static"
     templates_dir: Path = base_dir / "app" / "templates"
     upload_dir: Path = static_dir / "uploads"
@@ -70,7 +70,7 @@ class Settings(BaseSettings):
         # Create directories if they don't exist
         self.upload_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.weights_dir.mkdir(parents=True, exist_ok=True)
+        self.checkpoints_dir.mkdir(parents=True, exist_ok=True)
 
 
 @lru_cache()

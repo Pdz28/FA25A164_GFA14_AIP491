@@ -55,7 +55,7 @@ Professional skin cancer classification system with hybrid CNN+Transformer archi
 ├── training/
 │   ├── train.py             # Simple training script (all-in-one)
 │   └── README.md            # Training documentation
-├── weights/
+├── checkpoints/
 │   ├── best_hybrid_model.pth    # Main fusion checkpoint
 │   ├── best_effnetb0.pth        # Optional EfficientNet visualizer
 │   └── load_weight.py           # Weight loading utilities
@@ -85,17 +85,17 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 💪 Model Weights
+## 💪 Model checkpoints
 
-The system uses checkpoints from the `weights/` folder:
+The system uses checkpoints from the `checkpoints/` folder:
 
 ### Main Fusion Model
-- **Required**: Place your trained fusion model as `best_hybrid_model.pth` in `weights/`
+- **Required**: Place your trained fusion model as `best_hybrid_model.pth` in `checkpoints/`
 - **Auto-loading**: System prioritizes: `best_hybrid_model.pth` → `best_swin.pth` → `best_effnetb0.pth`
-- **Fallback**: If no checkpoint exists, uses ImageNet pretrained weights (predictions will be untrained but system functions)
+- **Fallback**: If no checkpoint exists, uses ImageNet pretrained checkpoints (predictions will be untrained but system functions)
 
 ### Optional EfficientNet Visualizer
-- **Enable GradCAM**: Place EfficientNet checkpoint starting with `eff*` (e.g., `best_effnetb0.pth`) in `weights/`
+- **Enable GradCAM**: Place EfficientNet checkpoint starting with `eff*` (e.g., `best_effnetb0.pth`) in `checkpoints/`
 - **UI Integration**: When available, "effnet" mode appears in visualization dropdown
 - **Check status**: Visit `/health` endpoint to see if EfficientNet visualizer is loaded
 
@@ -190,7 +190,7 @@ Service health and status check.
 {
   "status": "healthy",
   "model_loaded": true,
-  "weights_file": "best_hybrid_model.pth",
+  "checkpoints_file": "best_hybrid_model.pth",
   "device": "cuda",
   "effnet_available": true
 }
@@ -258,15 +258,15 @@ Epoch 10/101
   🎉 Best model saved!
 ```
 
-### Using Trained Weights
+### Using Trained checkpoints
 
 After training completes, copy the checkpoint for inference:
 
 ```bash
-# Copy best model to weights folder
-cp checkpoints/best_model.pth weights/best_hybrid_model.pth
+# Copy best model to checkpoints folder
+cp checkpoints/best_model.pth checkpoints/best_hybrid_model.pth
 
-# Restart the server to load new weights
+# Restart the server to load new checkpoints
 python main.py
 ```
 
@@ -314,7 +314,7 @@ HF_INFERENCE_URL=https://...       # Inference endpoint (optional)
 - ✅ **Fixed token stage**: Swin PatchCAM uses final stage (77) for consistency
 - ✅ **Removed deprecated modes**: `fusion_attn` visualization removed
 - ✅ **Enhanced visualization**: Percentile normalization improves low-contrast heatmaps
-- ✅ **Status indicator**: Shows loaded weights and EfficientNet visualizer availability
+- ✅ **Status indicator**: Shows loaded checkpoints and EfficientNet visualizer availability
 - ✅ **Per-pixel alpha**: Advanced blending option for fine-tuned overlays
 
 ### Visualization Modes
@@ -338,13 +338,13 @@ HF_INFERENCE_URL=https://...       # Inference endpoint (optional)
 
 #### "EffNet: unavailable" in UI
 - **Cause**: No EfficientNet visualizer checkpoint found
-- **Solution**: Place `eff*.pth` file in `weights/` folder and restart server
+- **Solution**: Place `eff*.pth` file in `checkpoints/` folder and restart server
 
-#### Model not loading / Using ImageNet weights
-- **Cause**: No checkpoint files in `weights/` folder
+#### Model not loading / Using ImageNet checkpoints
+- **Cause**: No checkpoint files in `checkpoints/` folder
 - **Solution**: 
   1. Train a model: `python training/train.py`
-  2. Copy checkpoint: `cp checkpoints/best_model.pth weights/best_hybrid_model.pth`
+  2. Copy checkpoint: `cp checkpoints/best_model.pth checkpoints/best_hybrid_model.pth`
   3. Restart server
 
 #### Slow inference on CPU

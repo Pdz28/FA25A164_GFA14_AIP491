@@ -106,8 +106,8 @@ class GradCAM:
         # activations: [B,C,H,W], gradients: [B,C,H,W]
         acts = self.activations
         grads = self.gradients
-        weights = grads.mean(dim=(2, 3), keepdim=True)  # [B,C,1,1]
-        cam = (weights * acts).sum(dim=1, keepdim=True)  # [B,1,H,W]
+        checkpoints = grads.mean(dim=(2, 3), keepdim=True)  # [B,C,1,1]
+        cam = (checkpoints * acts).sum(dim=1, keepdim=True)  # [B,1,H,W]
         cam = F.relu(cam)
         cam = self._normalize(cam)
         if upsample_size is not None:
@@ -177,8 +177,8 @@ class GradCAM:
         if acts is None or grads is None:
             raise RuntimeError("GradCAM cache is empty; run forward+backward first.")
 
-        weights = grads.mean(dim=(2, 3), keepdim=True)
-        cam = (weights * acts).sum(dim=1, keepdim=True)
+        checkpoints = grads.mean(dim=(2, 3), keepdim=True)
+        cam = (checkpoints * acts).sum(dim=1, keepdim=True)
         cam = F.relu(cam)
         cam = self._normalize(cam)
         if upsample_size is not None:

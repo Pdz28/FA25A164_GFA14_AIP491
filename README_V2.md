@@ -29,7 +29,7 @@ app/
 └── utils/
     └── gradcam.py         # GradCAM utilities
 
-weights/                    # Model checkpoints
+checkpoints/                    # Model checkpoints
 main.py                     # Legacy entry point (backward compatible)
 main_v2.py                  # New entry point
 .env.example               # Environment configuration template

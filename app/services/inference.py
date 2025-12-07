@@ -18,13 +18,13 @@ from app.models.swin import SwinTinyFull
 
 
 class InferenceService:
-    def __init__(self, weights_dir: str, device: str | torch.device = None):
+    def __init__(self, checkpoints_dir: str, device: str | torch.device = None):
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         self.class_names = ["benign", "malignant"]
         self.img_size = (224, 224)
-        self.loaded_weights_info = ""
+        self.loaded_checkpoints_info = ""
         self._build_transforms()
-        self._load_model(weights_dir)
+        self._load_model(checkpoints_dir)
 
     def _build_transforms(self):
         imagenet_mean = [0.485, 0.456, 0.406]
@@ -57,7 +57,7 @@ class InferenceService:
             ]
         )
 
-    def _load_model(self, weights_dir: str):
+    def _load_model(self, checkpoints_dir: str):
         from peft import get_peft_model, LoraConfig
         
         # Initialize base model with new architecture parameters
@@ -82,26 +82,26 @@ class InferenceService:
 
         # 1) Try full state dict (.pth) - prioritize best_hybrid_model.pth
         pth_candidates = []
-        hybrid_pth = os.path.join(weights_dir, "best_hybrid_model.pth")
+        hybrid_pth = os.path.join(checkpoints_dir, "best_hybrid_model.pth")
         if os.path.exists(hybrid_pth):
             pth_candidates.append(hybrid_pth)
         
-        default_pth = os.path.join(weights_dir, "best_fusion_model.pth")
+        default_pth = os.path.join(checkpoints_dir, "best_fusion_model.pth")
         if os.path.exists(default_pth):
             pth_candidates.append(default_pth)
         
-        # any .pth in weights_dir
-        if os.path.isdir(weights_dir):
-            for fn in os.listdir(weights_dir):
+        # any .pth in checkpoints_dir
+        if os.path.isdir(checkpoints_dir):
+            for fn in os.listdir(checkpoints_dir):
                 if fn.lower().endswith(".pth"):
-                    path = os.path.join(weights_dir, fn)
+                    path = os.path.join(checkpoints_dir, fn)
                     if path not in pth_candidates:
                         pth_candidates.append(path)
 
         loaded = False
         for path in pth_candidates:
             try:
-                sd = torch.load(path, map_location=self.device, weights_only=False)
+                sd = torch.load(path, map_location=self.device)
                 # Accept several common checkpoint structures
                 candidate_sd = None
                 if isinstance(sd, dict):
@@ -118,22 +118,22 @@ class InferenceService:
                     candidate_sd = sd
                 
                 load_result = self.model.load_state_dict(candidate_sd, strict=False)
-                self.loaded_weights_info = f"Loaded checkpoint: {os.path.basename(path)}"
+                self.loaded_checkpoints_info = f"Loaded checkpoint: {os.path.basename(path)}"
                 if load_result.missing_keys:
                     print(f"Missing keys: {len(load_result.missing_keys)}")
                 if load_result.unexpected_keys:
                     print(f"Unexpected keys: {len(load_result.unexpected_keys)}")
-                print(self.loaded_weights_info)
+                print(self.loaded_checkpoints_info)
                 loaded = True
                 break
             except Exception as e:
                 print(f"Failed to load {path}: {e}")
 
         # 2) If no full .pth, try LoRA adapter directory
-        if not loaded and os.path.isdir(weights_dir):
+        if not loaded and os.path.isdir(checkpoints_dir):
             adapter_dirs = []
-            for name in os.listdir(weights_dir):
-                ap = os.path.join(weights_dir, name)
+            for name in os.listdir(checkpoints_dir):
+                ap = os.path.join(checkpoints_dir, name)
                 if os.path.isdir(ap) and (
                     os.path.exists(os.path.join(ap, "adapter_config.json"))
                     or os.path.exists(os.path.join(ap, "adapter_model.bin"))
@@ -142,19 +142,19 @@ class InferenceService:
 
             for ap in adapter_dirs:
                 try:
-                    # self.model.swin is a PEFT-wrapped model; load adapter weights
+                    # self.model.swin is a PEFT-wrapped model; load adapter checkpoints
                     self.model.swin.load_adapter(ap, adapter_name="default")
                     self.model.swin.set_adapter("default")
-                    self.loaded_weights_info = f"Loaded LoRA adapter: {os.path.basename(ap)}"
-                    print(self.loaded_weights_info)
+                    self.loaded_checkpoints_info = f"Loaded LoRA adapter: {os.path.basename(ap)}"
+                    print(self.loaded_checkpoints_info)
                     loaded = True
                     break
                 except Exception as e:
                     print(f"Failed to load adapter {ap}: {e}")
 
         if not loaded:
-            self.loaded_weights_info = "No trained weights found; using backbone defaults with CrossModelAttention fusion."
-            print(self.loaded_weights_info)
+            self.loaded_checkpoints_info = "No trained checkpoints found; using backbone defaults with CrossModelAttention fusion."
+            print(self.loaded_checkpoints_info)
 
         # Prepare Grad-CAM on the last CNN block
         target_layer = self.model.get_last_cnn_layer()
@@ -168,12 +168,12 @@ class InferenceService:
             self.effnet.to(self.device).eval()
             # Try to load a matching effnet checkpoint if present
             eff_candidates = [
-                os.path.join(weights_dir, "best_effnetb0.pth"),
+                os.path.join(checkpoints_dir, "best_effnetb0.pth"),
             ]
-            if os.path.isdir(weights_dir):
-                for fn in os.listdir(weights_dir):
+            if os.path.isdir(checkpoints_dir):
+                for fn in os.listdir(checkpoints_dir):
                     if fn.lower().startswith("eff") and fn.lower().endswith(".pth"):
-                        p = os.path.join(weights_dir, fn)
+                        p = os.path.join(checkpoints_dir, fn)
                         if p not in eff_candidates:
                             eff_candidates.append(p)
 
@@ -201,12 +201,12 @@ class InferenceService:
             self.swin_cls.to(self.device).eval()
             # Try to load an explicit Swin checkpoint if present
             swin_candidates = [
-                os.path.join(weights_dir, "best_swin.pth"),
+                os.path.join(checkpoints_dir, "best_swin.pth"),
             ]
-            if os.path.isdir(weights_dir):
-                for fn in os.listdir(weights_dir):
+            if os.path.isdir(checkpoints_dir):
+                for fn in os.listdir(checkpoints_dir):
                     if fn.lower().startswith("best_swin") and fn.lower().endswith(".pth"):
-                        p = os.path.join(weights_dir, fn)
+                        p = os.path.join(checkpoints_dir, fn)
                         if p not in swin_candidates:
                             swin_candidates.append(p)
 
@@ -463,7 +463,7 @@ class InferenceService:
 
             # retain grad for tokens
             swin_tokens.retain_grad()
-            # retain grads for branch pooled features to compute weights
+            # retain grads for branch pooled features to compute checkpoints
             try:
                 pooled_cnn.retain_grad()
                 pooled_swin.retain_grad()

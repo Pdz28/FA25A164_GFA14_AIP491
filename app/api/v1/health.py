@@ -33,7 +33,7 @@ async def health_check(
     return HealthResponse(
         ready=True,
         device=str(service.device),
-        loaded_weights=getattr(service, "loaded_weights_info", ""),
+        loaded_checkpoints=getattr(service, "loaded_checkpoints_info", ""),
         effnet_loaded=effnet_loaded,
         swin_loaded=swin_loaded,
         version=settings.app_version,

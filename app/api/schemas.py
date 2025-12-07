@@ -10,7 +10,7 @@ class HealthResponse(BaseModel):
     """Health check response."""
     ready: bool
     device: str
-    loaded_weights: str
+    loaded_checkpoints: str
     effnet_loaded: bool
     swin_loaded: bool = False
     version: str

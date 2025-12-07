@@ -20,18 +20,18 @@ app/core/config.py
 
 **Trước:**
 ```python
-WEIGHTS_DIR = os.path.join(BASE_DIR, "weights")  # Hardcoded
+checkpoints_DIR = os.path.join(BASE_DIR, "checkpoints")  # Hardcoded
 ```
 
 **Sau:**
 ```python
 # .env
-WEIGHTS_DIR=/path/to/weights
+checkpoints_DIR=/path/to/checkpoints
 HF_TOKEN=your_token_here
 
 # Sử dụng
 settings = get_settings()
-weights_dir = settings.weights_dir
+checkpoints_dir = settings.checkpoints_dir
 ```
 
 ---
@@ -48,13 +48,13 @@ app/core/logging.py
 
 **Trước:**
 ```python
-print(f"Loading weights from {path}")
+print(f"Loading checkpoints from {path}")
 ```
 
 **Sau:**
 ```python
-logger.info("weights_loaded", path=path, size_mb=file_size)
-# Output: {"event": "weights_loaded", "path": "...", "size_mb": 45.2, "timestamp": "..."}
+logger.info("checkpoints_loaded", path=path, size_mb=file_size)
+# Output: {"event": "checkpoints_loaded", "path": "...", "size_mb": 45.2, "timestamp": "..."}
 ```
 
 ---
@@ -74,7 +74,7 @@ app/core/exceptions.py
 - `ModelNotLoadedError` - Model chưa load (400)
 - `InvalidInputError` - Input không hợp lệ (400)
 - `PredictionError` - Lỗi prediction (500)
-- `WeightLoadError` - Lỗi load weights (500)
+- `WeightLoadError` - Lỗi load checkpoints (500)
 
 ---
 
@@ -202,7 +202,7 @@ FA25A164_GFA14_AIP491/
 │   │   └── outputs/
 │   └── templates/
 │       └── index.html
-├── weights/
+├── checkpoints/
 │   ├── __init__.py
 │   ├── load_weight.py             # ✅ Updated weight loader
 │   └── best_hybrid_model.pth
@@ -282,7 +282,7 @@ curl http://localhost:8000/api/v1/health
 {
   "ready": true,
   "device": "cuda",
-  "loaded_weights": "best_hybrid_model.pth",
+  "loaded_checkpoints": "best_hybrid_model.pth",
   "effnet_loaded": true,
   "swin_loaded": true,
   "version": "1.0.0"

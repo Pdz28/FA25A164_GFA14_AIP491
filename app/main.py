@@ -14,7 +14,7 @@ from app.api.v1 import router as v1_router
 from app.core.config import get_settings
 from app.core.logging import get_logger, setup_logging
 from app.services.inference import InferenceService
-from weights.load_weight import load_weight
+from checkpoints.load_weight import load_weight
 
 # Initialize settings and logging
 settings = get_settings()
@@ -30,23 +30,23 @@ async def lifespan(app: FastAPI):
     """
     logger.info("app_startup", version=settings.app_version)
     
-    # Download weights from Hugging Face if needed
+    # Download checkpoints from Hugging Face if needed
     try:
-        weight_path = load_weight(weights_dir=str(settings.weights_dir))
+        weight_path = load_weight(checkpoints_dir=str(settings.checkpoints_dir))
         if weight_path:
-            logger.info("weights_loaded", path=weight_path)
+            logger.info("checkpoints_loaded", path=weight_path)
         else:
-            logger.warning("weights_not_loaded", message="Using pretrained backbone weights only")
+            logger.warning("checkpoints_not_loaded", message="Using pretrained backbone checkpoints only")
     except Exception as e:
-        logger.warning("weights_download_failed", error=str(e))
+        logger.warning("checkpoints_download_failed", error=str(e))
     
     # Initialize inference service
     try:
-        app.state.service = InferenceService(weights_dir=str(settings.weights_dir))
+        app.state.service = InferenceService(checkpoints_dir=str(settings.checkpoints_dir))
         logger.info(
             "service_initialized",
             device=str(app.state.service.device),
-            weights=app.state.service.loaded_weights_info,
+            checkpoints=app.state.service.loaded_checkpoints_info,
         )
     except Exception as e:
         logger.exception("service_initialization_failed", error=str(e))
