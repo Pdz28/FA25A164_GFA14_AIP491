@@ -5,6 +5,7 @@
   background: #0f1430;
   border: 1px solid #273069;
   border-radius: 10px;
+  min-height: 322px; /* enforce equal height to match the taller panel */
 }
 
 .model-title {

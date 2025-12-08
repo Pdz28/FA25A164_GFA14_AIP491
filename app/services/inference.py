@@ -263,8 +263,46 @@ class InferenceService:
         per_pixel: bool = False,
         alpha_min: float = 0.0,
         alpha_max: float = 0.6,
-    ) -> Dict:
+        bn_mode: str = "running",        # "running" (eval) or "batch" (force batch stats)
+        dropout_p: float | None = None,  # override dropout prob (e.g., 0.0 for off)
+        fixed_w_cnn: float | None = None,# optional fixed fusion weight for CNN map
+        fixed_w_vit: float | None = None,# optional fixed fusion weight for ViT map
+        ) -> Dict:
         os.makedirs(save_dir, exist_ok=True)
+        # Global eval for inference stability
+        self.model.eval()
+        if getattr(self, "effnet", None) is not None:
+            self.effnet.eval()
+        if getattr(self, "swin_cls", None) is not None:
+            self.swin_cls.eval()
+
+        # Apply BN mode: "running" uses eval (default), "batch" forces batch stats during forward
+        def _set_bn_mode(module: torch.nn.Module, use_batch_stats: bool):
+            for m in module.modules():
+                if isinstance(m, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
+                    # Toggle BN to train to use batch stats, but freeze affine params
+                    if use_batch_stats:
+                        m.train()
+                    else:
+                        m.eval()
+
+        _set_bn_mode(self.model, bn_mode == "batch")
+        if getattr(self, "effnet", None) is not None:
+            _set_bn_mode(self.effnet, bn_mode == "batch")
+
+        # Apply dropout override if requested
+        def _set_dropout_p(module: torch.nn.Module, pval: float | None):
+            if pval is None:
+                return
+            for m in module.modules():
+                if isinstance(m, torch.nn.Dropout):
+                    m.p = float(pval)
+
+        _set_dropout_p(self.model, dropout_p)
+        if getattr(self, "effnet", None) is not None:
+            _set_dropout_p(self.effnet, dropout_p)
+        if getattr(self, "swin_cls", None) is not None:
+            _set_dropout_p(self.swin_cls, dropout_p)
         x_eff, x_swin = self.preprocess(image)
 
         if mode == "cnn":
@@ -304,7 +342,7 @@ class InferenceService:
                 image,
                 cam_np,
                 alpha=0.45,
-                per_pixel=per_pixel,
+                per_pixel=per_pixel or enhance,
                 alpha_min=alpha_min,
                 alpha_max=alpha_max,
             )
@@ -502,9 +540,18 @@ class InferenceService:
                 pass
             g_cnn = pooled_cnn.grad.detach().abs().mean().item() if getattr(pooled_cnn, 'grad', None) is not None else 0.0
             g_vit = pooled_swin.grad.detach().abs().mean().item() if getattr(pooled_swin, 'grad', None) is not None else 0.0
-            denom = (g_cnn + g_vit) if (g_cnn + g_vit) > 1e-12 else 1.0
-            w_cnn = g_cnn / denom
-            w_vit = g_vit / denom
+            if fixed_w_cnn is not None and fixed_w_vit is not None:
+    # Use provided fixed weights; normalize to sum=1 for consistency
+                total = fixed_w_cnn + fixed_w_vit
+                if total <= 1e-12:
+                    w_cnn, w_vit = 0.5, 0.5
+                else:
+                    w_cnn = float(fixed_w_cnn) / total
+                    w_vit = float(fixed_w_vit) / total
+            else:
+                denom = (g_cnn + g_vit) if (g_cnn + g_vit) > 1e-12 else 1.0
+                w_cnn = g_cnn / denom
+                w_vit = g_vit / denom
 
             cam_np_n = self._normalize_np(cam_np)
             sal_np_n = self._normalize_np(sal_np)

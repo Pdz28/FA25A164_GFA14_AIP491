@@ -44,7 +44,7 @@ Professional skin cancer classification system with hybrid CNN+Transformer archi
 │       ├── uploads/             # User-uploaded images (ignored)
 │       └── outputs/             # Visualization outputs (ignored)
 ├── training/                    # Training scripts and data
-│   ├── train.py                 # Fusion training (all-in-one)
+│   ├── train_hybrid_model.py                 # Fusion training (all-in-one)
 │   ├── train_swin_tiny.py       # Swin-Tiny training with augmentation
 │   ├── train_efficientnetb0.py  # EfficientNet-B0 training script
 │   └── data/                    # Datasets (ignored)
@@ -54,10 +54,10 @@ Professional skin cancer classification system with hybrid CNN+Transformer archi
 │       └── valid/
 │           ├── benign/
 │           └── malignant/
-├── checkpoints/                 # Model weights for runtime
-│   ├── best_swin.pth
-│   ├── best_effnetb0.pth
-│   └── hybrid_model.pth         # Optional fusion checkpoint
+    ├── checkpoints/                 # Model weights for runtime
+    │   ├── best_swin.pth
+    │   ├── best_effnetb0.pth
+    │   └── hybrid_model.pth         # Optional fusion checkpoint
 ├── weights/                     # Legacy or external weights
 │   ├── __init__.py
 │   ├── best_effnetb0.pth

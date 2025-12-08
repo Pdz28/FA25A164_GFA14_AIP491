@@ -15,7 +15,8 @@ from app.core.config import get_settings
 from app.core.logging import get_logger, setup_logging
 from app.services.inference import InferenceService
 from checkpoints.load_weight import load_weight
-
+import logging
+logging.getLogger("watchdog.observers.inotify_buffer").setLevel(logging.ERROR)
 # Initialize settings and logging
 settings = get_settings()
 setup_logging(log_level=settings.log_level, log_format=settings.log_format)
@@ -143,6 +144,13 @@ if __name__ == "__main__":
         "app.main:app",
         host=settings.host,
         port=settings.port,
-        reload=settings.reload,
-        log_level=settings.log_level.lower(),
+        reload=True,
+        reload_delay=1.0,
+        reload_excludes=[
+            "__pycache__",
+            ".venv",
+            "app/static/outputs",
+            "app/static/uploads",
+            ".pytest_cache",
+        ],
     )

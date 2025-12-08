@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import argparse
 import sys
-
+import logging
+logging.getLogger("watchdog.observers.inotify_buffer").setLevel(logging.ERROR)
 from app.main import app, settings
 
 
@@ -42,8 +43,8 @@ def main():
     
     print(f"""
 ╔══════════════════════════════════════════════════════════╗
-║  CNN-Swin Fusion API v{settings.app_version}                    ║
-║  Professional Skin Cancer Classification                ║
+║  CNN-Swin Fusion API v{settings.app_version}             ║
+║  Professional Skin Cancer Classification                 ║
 ╚══════════════════════════════════════════════════════════╝
 
 🚀 Starting server...
@@ -68,8 +69,14 @@ Press CTRL+C to stop
             host=host,
             port=port,
             reload=reload,
-            workers=args.workers if args.prod else 1,
-            log_level=log_level,
+            reload_delay=1.0,
+            reload_excludes=[
+            "__pycache__",
+            ".venv",
+            "app/static/outputs",
+            "app/static/uploads",
+            ".pytest_cache",
+        ],
         )
     except KeyboardInterrupt:
         print("\n\n👋 Server stopped gracefully")
