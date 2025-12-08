@@ -11,25 +11,24 @@ Professional skin cancer classification system with hybrid CNN+Transformer archi
 
 **Project Structure**
 ```
-├── main.py                      # FastAPI server entry point
-├── pyproject.toml               # Project metadata (optional)
+├── main.py                      # FastAPI server entry point              
 ├── requirements.txt             # Python dependencies
 ├── README.md                    # Documentation
-├── SYSTEM_UPDATES.md            # Changelog / notes
 ├── app/                         # Backend application (FastAPI)
+│   ├── main.py                  # Core FastAPI setup 
 │   ├── api/
 │   │   ├── __init__.py
 │   │   └── v1/                  # API v1 endpoints
 │   │       ├── __init__.py
-│   │       └── (routers).py...     # Health, predict routes
+│   │       └── (routers).py...  # Health, predict routes
 │   ├── core/
 │   │   ├── __init__.py
-│   │   └── (config).py...          # Settings, logging, exceptions
+│   │   └── (config).py...       # Settings, logging, exceptions
 │   ├── models/                  # Model definitions
 │   │   ├── __init__.py
-│   │   ├── cnn_b0.py            # EfficientNet-B0 backbone
-│   │   ├── swin.py              # Swin Tiny model + dataset
-│   │   └── cnnswin.py           # Fusion model (CNN+Swin)
+│   │   ├── efficientnetb0.py    # EfficientNet-B0 backbone
+│   │   ├── hybridmodel.py.      # Fusion model (CNN+Swin)
+│   │   └── swintiny.py          # Swin Tiny model
 │   ├── services/
 │   │   └── inference.py         # Inference modes + GradCAM
 │   ├── utils/
@@ -47,22 +46,20 @@ Professional skin cancer classification system with hybrid CNN+Transformer archi
 │   ├── train_hybrid_model.py    # Fusion training 
 │   ├── train_swin_tiny.py       # Swin-Tiny training with augmentation
 │   ├── train_efficientnetb0.py  # EfficientNet-B0 training script
-│   └── data/                    # Datasets (ignored)
-│       ├── train/
-│       └── valid/
-|       └── save_checkpoints/                 
-|            ├── efficientnetb0/efficientnetb0.pth
-│            ├── hybrid_model/hybridmodel.pth
-│            └── swintiny/swintiny.pth       
-├── checkpoints/                     # Legacy or external weights
-│   ├── __init__.py
-│   ├── efficientnetb0.pth.pth
-│   ├── hybrid_model.pth.pth
-│   ├── swin-tiny.pth.pth
-│   └── load_weight.py
-└── scripts/                     # Utility scripts (optional)
-    └── README.md
-                   # Public static assets (optional)
+│   ├── data/                    # Datasets (ignored)
+│   │    ├── train/
+│   │    └── valid/
+|   └── save_checkpoints/                 
+|        ├── efficientnetb0/efficientnetb0.pth
+│        ├── hybrid_model/hybridmodel.pth
+│        └── swintiny/swintiny.pth       
+└── checkpoints/                 # Legacy or external weights
+    ├── __init__.py
+    ├── efficientnetb0.pth.pth
+    ├── hybrid_model.pth.pth
+    ├── swin-tiny.pth.pth
+    └── load_weight.py
+
 
 ```
 
