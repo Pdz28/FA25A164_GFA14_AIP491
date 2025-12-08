@@ -53,7 +53,7 @@ Professional skin cancer classification system with hybrid CNN+Transformer archi
 |        ├── efficientnetb0/efficientnetb0.pth
 │        ├── hybrid_model/hybridmodel.pth
 │        └── swintiny/swintiny.pth       
-└── checkpoints/                 # Legacy or external weights
+└── checkpoints/                 # Inference-time weights loaded by the server
     ├── __init__.py
     ├── efficientnetb0.pth.pth
     ├── hybrid_model.pth.pth
@@ -70,9 +70,6 @@ Professional skin cancer classification system with hybrid CNN+Transformer archi
 - `app/utils/gradcam.py`: Grad-CAM helpers for CNN and EfficientNet.
 - `training`: Standalone training scripts; outputs can be stored under `training/save_checkpoints/`.
 - `checkpoints`: Inference-time weights loaded by the server.
-- `weights`: Legacy directory; safe to keep for archival but not required.
-- `frontend`: Optional Next.js client. Server works without it.
-- `static`: Extra frontend assets; not required for API-only usage.
 
 **Setup (Windows PowerShell)**
 ```powershell
