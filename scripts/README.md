@@ -21,10 +21,10 @@ Professional skin cancer classification system with hybrid CNN+Transformer archi
 │   │   ├── __init__.py
 │   │   └── v1/                  # API v1 endpoints
 │   │       ├── __init__.py
-│   │       └── (routers).py     # Health, predict routes
+│   │       └── (routers).py...     # Health, predict routes
 │   ├── core/
 │   │   ├── __init__.py
-│   │   └── (config).py          # Settings, logging, exceptions
+│   │   └── (config).py...          # Settings, logging, exceptions
 │   ├── models/                  # Model definitions
 │   │   ├── __init__.py
 │   │   ├── cnn_b0.py            # EfficientNet-B0 backbone
@@ -44,42 +44,26 @@ Professional skin cancer classification system with hybrid CNN+Transformer archi
 │       ├── uploads/             # User-uploaded images (ignored)
 │       └── outputs/             # Visualization outputs (ignored)
 ├── training/                    # Training scripts and data
-│   ├── train_hybrid_model.py                 # Fusion training (all-in-one)
+│   ├── train_hybrid_model.py    # Fusion training 
 │   ├── train_swin_tiny.py       # Swin-Tiny training with augmentation
 │   ├── train_efficientnetb0.py  # EfficientNet-B0 training script
 │   └── data/                    # Datasets (ignored)
 │       ├── train/
-│       │   ├── benign/
-│       │   └── malignant/
 │       └── valid/
-│           ├── benign/
-│           └── malignant/
-    ├── checkpoints/                 # Model weights for runtime
-    │   ├── best_swin.pth
-    │   ├── best_effnetb0.pth
-    │   └── hybrid_model.pth         # Optional fusion checkpoint
-├── weights/                     # Legacy or external weights
+|       └── save_checkpoints/                 
+|            ├── efficientnetb0/efficientnetb0.pth
+│            ├── hybrid_model/hybridmodel.pth
+│            └── swintiny/swintiny.pth       
+├── checkpoints/                     # Legacy or external weights
 │   ├── __init__.py
-│   ├── best_effnetb0.pth
-│   ├── best_hybrid_model.pth
-│   ├── best_swin.pth
+│   ├── efficientnetb0.pth.pth
+│   ├── hybrid_model.pth.pth
+│   ├── swin-tiny.pth.pth
 │   └── load_weight.py
-├── frontend/                    # Optional Next.js UI
-│   ├── package.json
-│   ├── next.config.js
-│   └── app/
-│       ├── layout.js
-│       ├── page.js
-│       └── api/predict/route.js
-├── scripts/                     # Utility scripts (optional)
-│   └── README.md
-├── src/                         # Library-style code (optional)
-│   ├── __init__.py
-│   └── core/
-│       └── __init__.py
-└── static/                      # Public static assets (optional)
-  └── js/
-    └── app.js
+└── scripts/                     # Utility scripts (optional)
+    └── README.md
+                   # Public static assets (optional)
+
 ```
 
 **Folder Details**
