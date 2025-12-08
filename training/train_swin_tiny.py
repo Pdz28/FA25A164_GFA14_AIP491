@@ -23,7 +23,7 @@ torch.manual_seed(SEED)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 num_classes = 2
 batch_size = 32
-epochs = 30
+epochs = 100
 lr = 2e-4
 weight_decay = 1e-4
 label_smoothing = 0.05
