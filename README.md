@@ -1,6 +1,6 @@
-﻿# CNN-Swin Fusion Model - Complete System
+﻿# CNN-Swin Fusion Model - Complete server interface
 
-Professional skin cancer classification system with hybrid CNN+Transformer architecture, featuring FastAPI inference server, GradCAM visualization, and streamlined training pipeline.
+Professional skin cancer classification server interface with hybrid CNN+Transformer architecture, featuring FastAPI inference server, GradCAM visualization, and streamlined training pipeline.
 
 **Highlights**
 - FastAPI inference API with `/api/v1` routes and web UI
