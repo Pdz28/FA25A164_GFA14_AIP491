@@ -54,12 +54,15 @@ Professional skin cancer classification system with hybrid CNN+Transformer archi
 |            ├── efficientnetb0/efficientnetb0.pth
 │            ├── hybrid_model/hybridmodel.pth
 │            └── swintiny/swintiny.pth       
-└── checkpoints/                     # Legacy or external weights
-    ├── __init__.py
-    ├── efficientnetb0.pth.pth
-    ├── hybrid_model.pth.pth
-    ├── swin-tiny.pth.pth
-    └── load_weight.py
+├── checkpoints/                     # Legacy or external weights
+│   ├── __init__.py
+│   ├── efficientnetb0.pth.pth
+│   ├── hybrid_model.pth.pth
+│   ├── swin-tiny.pth.pth
+│   └── load_weight.py
+└── scripts/                     # Utility scripts (optional)
+    └── README.md
+                   # Public static assets (optional)
 
 ```
 
