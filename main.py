@@ -43,7 +43,7 @@ def main():
     
     print(f"""
 ╔══════════════════════════════════════════════════════════╗
-║  CNN-Swin Fusion API v{settings.app_version}             ║
+║  CNN-Swin Fusion API v{settings.app_version}                              ║
 ║  Professional Skin Cancer Classification                 ║
 ╚══════════════════════════════════════════════════════════╝
 
