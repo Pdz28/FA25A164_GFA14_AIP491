@@ -323,21 +323,50 @@ class InferenceService:
                 alpha_max=alpha_max,
             )
         elif mode == "effnet":
-            # Use standalone EfficientNet-B0 model for Grad-CAM visualization
+            # Dùng pytorch-grad-cam cho nhánh EfficientNetB0 thuần
             if getattr(self, "effnet", None) is None:
-                # Explicitly fail fast so clients know EffNet visualization isn't available
                 raise RuntimeError("EffNet visualization not loaded on server")
 
-            # Compute logits for reporting
+            # Tính logits để xác định lớp mục tiêu
             with torch.no_grad():
                 logits = self.effnet(x_eff)
                 probs = F.softmax(logits, dim=1)[0].detach().cpu().numpy()
                 pred_idx = int(np.argmax(probs))
 
-            # Compute Grad-CAM map via EffNet helper (this will run backward)
-            cam_np = self.effnet.compute_gradcam_map(x_eff, target_class=pred_idx)
+            # Sử dụng thư viện grad-cam chính thức
+            try:
+                from pytorch_grad_cam import GradCAM as PTGradCAM
+                from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+                # Tránh lỗi __del__ khi đối tượng chưa khởi tạo đầy đủ
+                try:
+                    PTGradCAM.__del__ = lambda self: None  # monkey-patch safe destructor
+                except Exception:
+                    pass
+            except Exception as e:
+                raise RuntimeError(f"pytorch-grad-cam not available: {e}")
+
+            target_layer = self.effnet.get_last_cnn_layer()
+            if target_layer is None:
+                raise RuntimeError("EffNet last conv layer not found")
+            target_layers = [target_layer]
+            # Khởi tạo GradCAM theo chữ ký tương thích, để lib tự suy luận device
+            cam_extractor = PTGradCAM(self.effnet, target_layers)
+            try:
+                targets = [ClassifierOutputTarget(pred_idx)]
+                grayscale_cam = cam_extractor(input_tensor=x_eff, targets=targets)
+                if isinstance(grayscale_cam, np.ndarray):
+                    cam_np = grayscale_cam[0]
+                else:
+                    cam_np = grayscale_cam[0].detach().cpu().numpy()
+            finally:
+                # Giải phóng hook nếu lib hỗ trợ
+                try:
+                    cam_extractor.activations_and_grads.release()
+                except Exception:
+                    pass
+
+            # Chuẩn hoá và ghép ảnh
             cam_np = self._percentile_normalize(cam_np, 2, 98) if enhance else self._normalize_np(cam_np)
-            # Overlay using the existing GradCAM utility
             overlay = self.gradcam.overlay_on_image(
                 image,
                 cam_np,
