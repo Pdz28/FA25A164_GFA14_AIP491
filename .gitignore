@@ -29,7 +29,7 @@ checkpoints/*.pt
 checkpoints/*.ckpt
 checkpoints/*.bin
 checkpoints/*.safetensors
-
+!checkpoints/load_weight.py
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb
