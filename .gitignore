@@ -23,7 +23,7 @@ ENV/
 *.ckpt
 *.bin
 *.safetensors
-checkpoints/
+checkpoints/*
 checkpoints/*.pth
 checkpoints/*.pt
 checkpoints/*.ckpt
